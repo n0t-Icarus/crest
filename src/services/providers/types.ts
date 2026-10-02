@@ -124,6 +124,8 @@ export type HomeFeed = {
   moods?: MoodChip[]
   /** Mood currently applied to the feed; absent means unfiltered. */
   activeMood?: string
+  /** Country the feed was built for (ISO code); absent means automatic. */
+  region?: string
 }
 
 export type AudioStream =
@@ -161,7 +163,7 @@ export interface MusicProvider {
   readonly displayName: string
   readonly capabilities: ProviderCapabilities
 
-  getHome(options?: { signal?: AbortSignal; mood?: string }): Promise<HomeFeed>
+  getHome(options?: { signal?: AbortSignal; mood?: string; region?: string }): Promise<HomeFeed>
   search(query: string, options?: { signal?: AbortSignal }): Promise<SearchResults>
   getTrack(id: string): Promise<Track | null>
   getTracks(ids: string[]): Promise<Track[]>

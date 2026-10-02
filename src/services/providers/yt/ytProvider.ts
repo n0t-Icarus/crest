@@ -33,6 +33,25 @@ import { TtlCache } from '../net'
 
 const HELPER_BASE = 'http://127.0.0.1:5267'
 
+/**
+ * What to actually tell the user when a track will not stream.
+ *
+ * The media element cannot tell "this track is broken" from "YouTube refused
+ * to hand over the audio", so it reports both as an unsupported source. Sending
+ * the player a URL we have not checked meant users were told to skip a song
+ * that was perfectly playable, with no clue that the network was the problem.
+ */
+const STREAM_REASONS: Record<string, string> = {
+  rate_limited: 'YouTube is rate-limiting this network right now, so this track cannot stream. It usually clears in a few minutes — try Retry.',
+  private: 'This track is private, so it cannot be played.',
+  age_restricted: 'This track is age-restricted and cannot be played here.',
+  geo_blocked: 'This track is not available in your country.',
+  unavailable: 'This track is no longer available on YouTube.',
+  no_stream: 'YouTube returned no playable audio for this track.',
+  timeout: 'Resolving this track took too long. Try Retry.',
+  helper_down: 'The local media helper is not running. Restart Crest to start it.',
+}
+
 function helperUrl(path: string, params: Record<string, string | number | undefined> = {}): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -42,8 +61,80 @@ function helperUrl(path: string, params: Record<string, string | number | undefi
   return `${HELPER_BASE}${path}${query ? `?${query}` : ''}`
 }
 
+/**
+ * How long to wait for the helper to answer before telling the user to restart.
+ *
+ * On launch the webview mounts and fetches straight away, but the Rust shell is
+ * still spawning Node: binding the port takes ~160ms, and longer while the
+ * helper retries a port a dying process still holds. The browser reports that
+ * window as `TypeError: Failed to fetch`, which is how a freshly installed
+ * Crest opened on an empty Home page while the helper came up moments later.
+ */
+const HELPER_READY_TIMEOUT_MS = 8_000
+const HELPER_POLL_MS = 60
+
+let helperReady: Promise<void> | null = null
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function pollForHelper(): Promise<void> {
+  const deadline = Date.now() + HELPER_READY_TIMEOUT_MS
+  let reason = 'no response'
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(helperUrl('/health'), { signal: AbortSignal.timeout(1_000) })
+      if (response.ok) return
+      reason = `status ${response.status}`
+    } catch (cause) {
+      reason = cause instanceof Error ? cause.message : String(cause)
+    }
+    await sleep(HELPER_POLL_MS)
+  }
+  throw new Error(`The local media helper did not start (${reason}).`)
+}
+
+/**
+ * Memoized so the handful of requests a cold start fires all share one wait
+ * instead of each polling on its own. A failure is never cached, so the Retry
+ * button — or the next page — can still win once the helper recovers.
+ */
+function ensureHelperReady(): Promise<void> {
+  if (!helperReady) {
+    helperReady = pollForHelper().catch((error: unknown) => {
+      helperReady = null
+      throw error
+    })
+  }
+  return helperReady
+}
+
+/**
+ * Requests to the helper, after proving it is listening.
+ *
+ * Only connection failures are retried, and only once: an upstream error (a
+ * rate-limited YouTube lookup, say) already came back as a real response and
+ * repeating it would just double the wait.
+ */
+async function fetchHelper(
+  path: string,
+  params: Record<string, string | number | undefined> = {},
+): Promise<Response> {
+  await ensureHelperReady()
+  try {
+    return await fetch(helperUrl(path, params))
+  } catch (cause) {
+    // The helper can also die mid-session — a crash, or the port being taken.
+    // Re-checking readiness recovers that without making the user restart.
+    helperReady = null
+    await ensureHelperReady()
+    return await fetch(helperUrl(path, params))
+  }
+}
+
 async function helperGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
-  const response = await fetch(helperUrl(path, params))
+  const response = await fetchHelper(path, params)
   if (!response.ok) {
     const detail = await response.json().catch(() => null)
     throw new Error((detail as { error?: string } | null)?.error ?? `Media helper ${response.status}`)
@@ -60,8 +151,15 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 export function startHelperHeartbeat(): void {
   if (heartbeatTimer) return
   const beat = () => {
+    // Always a real request. The helper counts these and exits after a missed
+    // window, so this must never be routed through `ensureHelperReady` — a
+    // memoized success would short-circuit it and the helper would shut itself
+    // down underneath a running app.
     void fetch(helperUrl('/health'), { signal: AbortSignal.timeout(2000) }).catch(() => undefined)
   }
+  // Prime the shared gate in the background at mount so the first content
+  // request finds the helper already listening instead of waiting it out.
+  void ensureHelperReady().catch(() => undefined)
   beat()
   heartbeatTimer = setInterval(beat, 5_000)
 }
@@ -216,13 +314,14 @@ export class YtProvider implements MusicProvider {
     notes: 'Full-length playback via a local yt-dlp pipeline (personal use). Requires the media helper on port 5267.',
   }
 
-  async getHome(options: { mood?: string } = {}): Promise<HomeFeed> {
+  async getHome(options: { mood?: string; region?: string } = {}): Promise<HomeFeed> {
     const mood = options.mood ?? ''
+    const region = options.region ?? ''
     const { moods, shelves, quickPicks } = await helperGet<{
       moods: Array<{ id: string; label: string }>
       shelves: Array<{ title: string; strapline?: string | null; tracks: HelperTrack[]; playlists: HelperPlaylistShelf[] }>
       quickPicks: HelperTrack[]
-    }>('/home', { mood, limit: 8 })
+    }>('/home', { mood, region, limit: 8 })
 
     const sections: HomeFeed['sections'] = []
 
@@ -271,7 +370,82 @@ export class YtProvider implements MusicProvider {
       sections,
       moods: moods ?? [],
       activeMood: mood || undefined,
+      region: region || undefined,
     }
+  }
+
+  /**
+   * Countries the home feed can be localized to.
+   *
+   * Static rather than fetched: the list is part of the app, not of YouTube,
+   * and the Settings picker must render before anything is loaded. The helper
+   * ignores codes it does not know and falls back to automatic.
+   */
+  async getRegions(): Promise<Array<{ code: string; name: string }>> {
+    return [
+      { code: '', name: 'Automatic (my location)' },
+      { code: 'US', name: 'United States' },
+      { code: 'GB', name: 'United Kingdom' },
+      { code: 'CA', name: 'Canada' },
+      { code: 'AU', name: 'Australia' },
+      { code: 'NZ', name: 'New Zealand' },
+      { code: 'IE', name: 'Ireland' },
+      { code: 'IN', name: 'India' },
+      { code: 'PK', name: 'Pakistan' },
+      { code: 'BD', name: 'Bangladesh' },
+      { code: 'LK', name: 'Sri Lanka' },
+      { code: 'NP', name: 'Nepal' },
+      { code: 'AE', name: 'United Arab Emirates' },
+      { code: 'SA', name: 'Saudi Arabia' },
+      { code: 'EG', name: 'Egypt' },
+      { code: 'MA', name: 'Morocco' },
+      { code: 'DZ', name: 'Algeria' },
+      { code: 'NG', name: 'Nigeria' },
+      { code: 'GH', name: 'Ghana' },
+      { code: 'KE', name: 'Kenya' },
+      { code: 'ZA', name: 'South Africa' },
+      { code: 'DE', name: 'Germany' },
+      { code: 'AT', name: 'Austria' },
+      { code: 'CH', name: 'Switzerland' },
+      { code: 'FR', name: 'France' },
+      { code: 'BE', name: 'Belgium' },
+      { code: 'NL', name: 'Netherlands' },
+      { code: 'ES', name: 'Spain' },
+      { code: 'PT', name: 'Portugal' },
+      { code: 'BR', name: 'Brazil' },
+      { code: 'IT', name: 'Italy' },
+      { code: 'SE', name: 'Sweden' },
+      { code: 'NO', name: 'Norway' },
+      { code: 'DK', name: 'Denmark' },
+      { code: 'FI', name: 'Finland' },
+      { code: 'IS', name: 'Iceland' },
+      { code: 'PL', name: 'Poland' },
+      { code: 'CZ', name: 'Czechia' },
+      { code: 'SK', name: 'Slovakia' },
+      { code: 'HU', name: 'Hungary' },
+      { code: 'RO', name: 'Romania' },
+      { code: 'GR', name: 'Greece' },
+      { code: 'TR', name: 'Türkiye' },
+      { code: 'UA', name: 'Ukraine' },
+      { code: 'RU', name: 'Russia' },
+      { code: 'IL', name: 'Israel' },
+      { code: 'KR', name: 'South Korea' },
+      { code: 'JP', name: 'Japan' },
+      { code: 'CN', name: 'China' },
+      { code: 'TW', name: 'Taiwan' },
+      { code: 'HK', name: 'Hong Kong' },
+      { code: 'TH', name: 'Thailand' },
+      { code: 'VN', name: 'Vietnam' },
+      { code: 'ID', name: 'Indonesia' },
+      { code: 'MY', name: 'Malaysia' },
+      { code: 'SG', name: 'Singapore' },
+      { code: 'PH', name: 'Philippines' },
+      { code: 'MX', name: 'Mexico' },
+      { code: 'AR', name: 'Argentina' },
+      { code: 'CO', name: 'Colombia' },
+      { code: 'CL', name: 'Chile' },
+      { code: 'PE', name: 'Peru' },
+    ]
   }
 
   async search(query: string): Promise<SearchResults> {
@@ -515,20 +689,36 @@ export class YtProvider implements MusicProvider {
     if (!videoId) {
       return { kind: 'unavailable', reason: 'Invalid track ID.' }
     }
-    // Confirm the helper is alive before handing the player a URL that will
-    // 404; the error message keeps the UI honest about what's wrong. Retry once
-    // to cover the helper's port-retry window after a crash.
-    let helperAlive = false
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const health = await fetch(helperUrl('/health'), { signal: AbortSignal.timeout(4000) })
-        if (health.ok) { helperAlive = true; break }
-      } catch { /* retry */ }
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 2000))
+    // Confirm the helper is listening before handing the player a URL that
+    // would 404; the error message keeps the UI honest about what is wrong.
+    // `ensureHelperReady` already waits out the startup window and retries a
+    // single mid-session death, so this is a cheap check in the common case.
+    try {
+      await ensureHelperReady()
+    } catch {
+      return { kind: 'unavailable', reason: STREAM_REASONS.helper_down }
     }
-    if (!helperAlive) {
-      return { kind: 'unavailable', reason: 'The local media helper is not running. Restart Crest to start it.' }
+
+    // Ask for two bytes before committing to playback. If the audio cannot be
+    // resolved we find out here, where the failure can still be explained,
+    // instead of inside the media element, which can only say "unsupported
+    // source". The resolution is cached, so the element's own request for the
+    // full track is served without a second yt-dlp run.
+    try {
+      const probe = await fetch(helperUrl('/audio', { vid: videoId }), {
+        headers: { Range: 'bytes=0-1' },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!probe.ok) {
+        const detail = (await probe.json().catch(() => null)) as { reason?: string } | null
+        const reason = detail?.reason ?? 'error'
+        return { kind: 'unavailable', reason: STREAM_REASONS[reason] ?? `This track could not be played (${reason}).` }
+      }
+      await probe.arrayBuffer()
+    } catch {
+      return { kind: 'unavailable', reason: 'Lost contact with the local media helper. Try Retry.' }
     }
+
     // The proxied URL never expires and supports Range; the player seeks freely.
     const streamUrl = helperUrl('/audio', { vid: videoId }).trim()
     return { kind: 'url', url: streamUrl, mimeType: 'audio/mp4' }

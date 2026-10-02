@@ -35,6 +35,8 @@ import { pipeline } from 'node:stream/promises'
 import process from 'node:process'
 import { searchAll, searchMusics, searchAlbums, searchArtists, searchPlaylists, albumTracks, artistDetails, playlistTracks, trackDetails, homeFeed, moodChips, homeShelves, relatedTracks, radioTracks } from './ytmusic.mjs'
 import { resolveAudio, clearCaches } from './mediaCore.mjs'
+import { setRegion } from './innertube.mjs'
+import { listRegions, resolveRegion } from './regions.mjs'
 
 const PORT = Number(process.env.MEDIA_HELPER_PORT ?? 5267)
 const HOST = '127.0.0.1'
@@ -46,7 +48,35 @@ const FIRST_HEARTBEAT_GRACE_MS = Number(process.env.MEDIA_HELPER_GRACE_MS ?? 180
 const UPSTREAM_TIMEOUT_MS = 20_000
 /** googlevideo rejects Range spans much over ~1 MiB (403); keep each upstream read small. */
 const AUDIO_CHUNK_BYTES = 1024 * 1024
+/** Fresh URL + backoff per attempt, for the short throttles googlevideo applies. */
+const UPSTREAM_ATTEMPTS = 3
+const UPSTREAM_BACKOFF_MS = [2000, 5000]
+/**
+ * Circuit breaker.
+ *
+ * One 403 means the network is being throttled, and every further request made
+ * during that window deepens it. So after a refusal the helper stops resolving
+ * entirely for a short while, which both protects the user from a queue full
+ * of instant failures and lets the throttle actually decay. Without this,
+ * skipping through a playlist turns one blocked track into a blocked session.
+ */
+const THROTTLE_COOLDOWN_MS = 30_000
+let throttleUntil = 0
 const DEBUG = process.env.MEDIA_HELPER_DEBUG === '1'
+
+/** Abort-aware sleep, so a client hanging up does not keep us waiting. */
+function sleep(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve()
+    const timer = setTimeout(done, ms)
+    function done() {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', done)
+      resolve()
+    }
+    signal?.addEventListener('abort', done, { once: true })
+  })
+}
 
 let lastHeartbeat = null
 
@@ -117,7 +147,13 @@ function audioMime(type) {
  */
 async function fetchUpstream(vid, range, signal) {
   let lastStatus = null
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  // 403 from googlevideo is usually a short-lived throttle, not a dead track:
+  // burst a few tracks and the next request gets refused for a bit. Resolve a
+  // fresh URL and back off rather than surfacing a failure the retry would fix.
+  for (let attempt = 0; attempt < UPSTREAM_ATTEMPTS; attempt += 1) {
+    // Respect a cooldown left behind by an earlier refusal.
+    const cooling = throttleUntil - Date.now()
+    if (cooling > 0 && !signal.aborted) await sleep(Math.min(cooling, THROTTLE_COOLDOWN_MS), signal)
     const media = await resolveAudio(vid, { fresh: attempt > 0 })
     // One gate per attempt: the client aborting tears the upstream down (headers
     // phase *and* body), while the timeout below only guards the headers phase —
@@ -143,9 +179,17 @@ async function fetchUpstream(vid, range, signal) {
     await response.body?.cancel().catch(() => undefined)
     console.warn(`[media-helper] /audio ${vid} upstream ${response.status} (attempt ${attempt + 1})`)
     lastStatus = response.status
-    if (![401, 403, 404, 410].includes(response.status)) break
+    if (response.status === 403) throttleUntil = Date.now() + THROTTLE_COOLDOWN_MS
+    // 404/410 mean the track itself is gone; retrying only wastes seconds.
+    if ([404, 410].includes(response.status)) break
+    if (attempt < UPSTREAM_ATTEMPTS - 1 && !signal.aborted) {
+      await sleep(UPSTREAM_BACKOFF_MS[attempt] ?? 1500, signal)
+    }
   }
-  throw new Error(`upstream ${lastStatus ?? 'error'}`)
+  const error = new Error(`upstream ${lastStatus ?? 'error'}`)
+  // A refused stream is the throttle case, so say so instead of "unsupported".
+  error.reason = lastStatus === 403 ? 'rate_limited' : 'error'
+  throw error
 }
 
 /** Pipes an upstream audio response to the client, preserving Range semantics. */
@@ -233,8 +277,16 @@ const server = http.createServer(async (req, res) => {
         send(res, 200, { tracks })
         return
       }
+      case '/regions': {
+        lastHeartbeat = Date.now()
+        send(res, 200, { regions: listRegions() })
+        return
+      }
       case '/home': {
         lastHeartbeat = Date.now()
+        // Set the market before the feed is built: the Innertube session reads
+        // gl/hl when the request is made, so this has to happen first.
+        setRegion(resolveRegion(url.searchParams.get('region') ?? ''))
         const result = await homeFeed({
           mood: url.searchParams.get('mood') ?? '',
           limit: Number(url.searchParams.get('limit') ?? 8),
@@ -329,8 +381,11 @@ const server = http.createServer(async (req, res) => {
     if (message.includes('403')) {
       console.warn('[media-helper] Upstream 403 Forbidden: YouTube rejected audio stream chunks. Run "yt-dlp -U" to update yt-dlp to the latest version.')
     }
-    if (!res.headersSent) send(res, 500, { error: message.slice(0, 200) })
-    else res.end()
+    if (!res.headersSent) {
+      // `reason` is the part the UI can act on; `error` stays the raw text for
+      // anyone reading the log.
+      send(res, 500, { error: message.slice(0, 200), reason: error?.reason ?? 'error' })
+    } else res.end()
   }
 })
 

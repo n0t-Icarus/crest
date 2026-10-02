@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cacheTracks } from '@/library/useTracks'
 import { getProvider } from '@/services/providers'
+import { useSettingsStore } from '@/store/settingsStore'
 import type { HomeFeed } from '@/services/providers/types'
 
 /**
@@ -8,14 +9,20 @@ import type { HomeFeed } from '@/services/providers/types'
  *
  * Kept warm in module scope: returning to Home after browsing the library shows
  * content instantly and only refreshes in the background. The cache is keyed by
- * mood, so switching chips is instant in both directions and neither mood
- * clobbers the other.
+ * mood *and* country, so switching chips is instant in both directions, neither
+ * mood clobbers the other, and changing country never shows the old market's
+ * feed from cache.
  */
 
 type CacheEntry = { feed: HomeFeed; storedAt: number }
 const CACHE_TTL_MS = 5 * 60_000
 
 const cache = new Map<string, CacheEntry>()
+
+/** Cache key for a mood within a country. */
+function cacheKey(mood: string, region: string): string {
+  return `${region || 'auto'}::${mood}`
+}
 
 export type HomeFeedState = {
   feed: HomeFeed | null
@@ -34,20 +41,21 @@ function prewarm(feed: HomeFeed): void {
   }
 }
 
-function readCache(mood: string): HomeFeed | null {
-  const entry = cache.get(mood)
+function readCache(key: string): HomeFeed | null {
+  const entry = cache.get(key)
   if (!entry) return null
   if (Date.now() - entry.storedAt > CACHE_TTL_MS) {
-    cache.delete(mood)
+    cache.delete(key)
     return null
   }
   return entry.feed
 }
 
 export function useHomeFeed(): HomeFeedState {
+  const region = useSettingsStore((state) => state.region)
   const [mood, setMood] = useState('')
-  const [feed, setFeed] = useState<HomeFeed | null>(() => readCache('') ?? readCache('Relax'))
-  const [loading, setLoading] = useState(() => readCache('') === null && readCache('Relax') === null)
+  const [feed, setFeed] = useState<HomeFeed | null>(() => readCache(cacheKey('', '')) ?? readCache(cacheKey('Relax', '')))
+  const [loading, setLoading] = useState(() => readCache(cacheKey('', '')) === null && readCache(cacheKey('Relax', '')) === null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nonce, setNonce] = useState(0)
@@ -56,7 +64,8 @@ export function useHomeFeed(): HomeFeedState {
 
   useEffect(() => {
     const seq = ++requestSeq.current
-    const cached = readCache(mood)
+    const key = cacheKey(mood, region)
+    const cached = readCache(key)
 
     if (cached) {
       setFeed(cached)
@@ -65,15 +74,18 @@ export function useHomeFeed(): HomeFeedState {
       return
     }
 
+    // Switching country must not leave the previous market's shelves on screen
+    // while the new ones load; blank beats confidently wrong.
+    setFeed((current) => (current?.region === (region || undefined) ? current : null))
     if (feed) setPending(true)
     else setLoading(true)
     setError(null)
 
     void getProvider()
-      .getHome({ mood })
+      .getHome({ mood, region })
       .then((result) => {
         if (seq !== requestSeq.current) return
-        cache.set(mood, { feed: result, storedAt: Date.now() })
+        cache.set(key, { feed: result, storedAt: Date.now() })
         prewarm(result)
         setFeed(result)
       })
@@ -86,7 +98,7 @@ export function useHomeFeed(): HomeFeedState {
         setLoading(false)
         setPending(false)
       })
-  }, [mood, nonce])
+  }, [mood, region, nonce])
 
   const selectMood = useCallback((next: string) => {
     setMood((current) => (current === next ? current : next))

@@ -17,7 +17,7 @@
  */
 
 import { curateTracks, curateCollections } from './quality.mjs'
-import { getInnertube } from './innertube.mjs'
+import { getInnertube, getRegion } from './innertube.mjs'
 
 const txt = (value) => {
   if (value == null) return ''
@@ -123,6 +123,7 @@ function isMusicShelf(shelf) {
  * Energize, Focus, Sleep …) — the same taxonomy the reference app shows.
  */
 export async function moodChips() {
+  syncRegion()
   const yt = await getInnertube()
   const cached = readHomeCache('home')
   const home = cached ?? (await yt.music.getHomeFeed())
@@ -146,6 +147,22 @@ export async function moodChips() {
  */
 const HOME_CACHE_TTL_MS = 15 * 60_000
 const homeCache = new Map()
+/** The market the cached entries belong to. */
+let cachedRegion = null
+
+/**
+ * Drop cached feeds when the country changes.
+ *
+ * Keying the cache by region instead would be tidier, but there are ~60 markets
+ * times ~10 moods of full editorial payloads; clearing on change keeps the
+ * working set at exactly one market.
+ */
+function syncRegion() {
+  const current = getRegion()?.gl ?? null
+  if (current === cachedRegion) return
+  cachedRegion = current
+  homeCache.clear()
+}
 
 function readHomeCache(key) {
   const entry = homeCache.get(key)
@@ -162,6 +179,7 @@ function writeHomeCache(key, feed) {
 }
 
 export async function homeShelves({ mood = '', limit = 8 } = {}) {
+  syncRegion()
   const yt = await getInnertube()
 
   let home

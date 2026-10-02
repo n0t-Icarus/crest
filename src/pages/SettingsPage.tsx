@@ -17,6 +17,7 @@ type SectionId =
   | 'appearance'
   | 'playback'
   | 'audio'
+  | 'region'
   | 'downloads'
   | 'library'
   | 'notifications'
@@ -29,6 +30,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: IconName }> = [
   { id: 'appearance', label: 'Appearance', icon: 'palette' },
   { id: 'playback', label: 'Playback', icon: 'play' },
   { id: 'audio', label: 'Audio', icon: 'equalizer' },
+  { id: 'region', label: 'Country', icon: 'home' },
   { id: 'downloads', label: 'Downloads', icon: 'download' },
   { id: 'library', label: 'Library', icon: 'library' },
   { id: 'notifications', label: 'Notifications', icon: 'bell' },
@@ -37,6 +39,31 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: IconName }> = [
   { id: 'advanced', label: 'Advanced', icon: 'gear' },
   { id: 'about', label: 'About', icon: 'info' },
 ]
+
+/**
+ * Every market the home feed can be localized to.
+ *
+ * Kept in the app rather than fetched: the picker must render immediately, and
+ * the country list is a product decision, not something YouTube serves.
+ */
+const REGION_OPTIONS = [
+  ['US', 'United States'], ['GB', 'United Kingdom'], ['CA', 'Canada'], ['AU', 'Australia'],
+  ['NZ', 'New Zealand'], ['IE', 'Ireland'], ['IN', 'India'], ['PK', 'Pakistan'],
+  ['BD', 'Bangladesh'], ['LK', 'Sri Lanka'], ['NP', 'Nepal'], ['AE', 'United Arab Emirates'],
+  ['SA', 'Saudi Arabia'], ['EG', 'Egypt'], ['MA', 'Morocco'], ['DZ', 'Algeria'],
+  ['NG', 'Nigeria'], ['GH', 'Ghana'], ['KE', 'Kenya'], ['ZA', 'South Africa'],
+  ['DE', 'Germany'], ['AT', 'Austria'], ['CH', 'Switzerland'], ['FR', 'France'],
+  ['BE', 'Belgium'], ['NL', 'Netherlands'], ['ES', 'Spain'], ['PT', 'Portugal'],
+  ['BR', 'Brazil'], ['IT', 'Italy'], ['SE', 'Sweden'], ['NO', 'Norway'],
+  ['DK', 'Denmark'], ['FI', 'Finland'], ['IS', 'Iceland'], ['PL', 'Poland'],
+  ['CZ', 'Czechia'], ['SK', 'Slovakia'], ['HU', 'Hungary'], ['RO', 'Romania'],
+  ['GR', 'Greece'], ['TR', 'Türkiye'], ['UA', 'Ukraine'], ['RU', 'Russia'],
+  ['IL', 'Israel'], ['KR', 'South Korea'], ['JP', 'Japan'], ['CN', 'China'],
+  ['TW', 'Taiwan'], ['HK', 'Hong Kong'], ['TH', 'Thailand'], ['VN', 'Vietnam'],
+  ['ID', 'Indonesia'], ['MY', 'Malaysia'], ['SG', 'Singapore'], ['PH', 'Philippines'],
+  ['MX', 'Mexico'], ['AR', 'Argentina'], ['CO', 'Colombia'], ['CL', 'Chile'],
+  ['PE', 'Peru'],
+] as const
 
 const THEME_PRESETS: Array<{ id: ThemeId; label: string; description: string; preview: [string, string, string] }> = [
   { id: 'noir', label: 'Noir', description: 'Black & white with glow — the default.', preview: ['#060607', '#f4f4f5', '#0b0b0c'] },
@@ -115,6 +142,7 @@ export function SettingsPage({ section }: { section?: string }) {
       <div className={styles.content}>
         {active === 'appearance' ? <AppearanceSection /> : null}
         {active === 'playback' ? <PlaybackSection /> : null}
+        {active === 'region' ? <RegionSection /> : null}
         {active === 'audio' ? <AudioSection /> : null}
         {active === 'downloads' ? <DownloadsSection /> : null}
         {active === 'library' ? <LibrarySection /> : null}
@@ -272,6 +300,60 @@ function AppearanceSection() {
             ]}
           />
         }
+      />
+    </SettingsSection>
+  )
+}
+
+/**
+ * Which country's music Home should surface.
+ *
+ * This shapes the editorial feed and its language — it is not a VPN. YouTube
+ * still sees the real network, so chart positions can lean toward wherever the
+ * machine actually is, but the shelves, headlines and mood rows are the
+ * selected market's. Search stays global on purpose: any song can still be
+ * found by name.
+ */
+function RegionSection() {
+  const settings = useSettingsStore()
+  const [preview, setPreview] = useState<string | null>(null)
+
+  const options = [
+    { value: '', label: 'Automatic (my location)' },
+    ...REGION_OPTIONS.map(([code, name]) => ({ value: code, label: name })),
+  ]
+  const selected = options.find((option) => option.value === settings.region) ?? options[0]
+
+  return (
+    <SettingsSection
+      id="region"
+      title="Country"
+      description="Shapes which music Home shows. Search always stays global, so you can still look up anything."
+    >
+      <SettingRow
+        label="Music region"
+        description="Your home feed, mood chips and shelf titles come from this market."
+        control={
+          <Select
+            label="Music region"
+            value={settings.region}
+            onChange={(value) => {
+              settings.set('region', value)
+              setPreview(value)
+            }}
+            options={options}
+          />
+        }
+      />
+      <SettingRow
+        label="Current market"
+        description={preview ?? (settings.region ? selected.label : 'Automatic — YouTube decides from your network.')}
+        control={<span className={styles.kbd}>{settings.region || 'Auto'}</span>}
+      />
+      <SettingRow
+        label="Search"
+        description="Search is never restricted by region — any song, album or artist can be looked up by name."
+        control={<span className={styles.kbd}>Global</span>}
       />
     </SettingsSection>
   )

@@ -35,6 +35,11 @@ export type ShortcutMap = Record<string, string>
 export type Settings = {
   /* Catalogue */
   providerId: ProviderId
+  /**
+   * ISO country code shaping the home feed (Settings → Country). Empty means
+   * automatic, which leaves YouTube to geolocate from the network.
+   */
+  region: string
 
   /* Appearance */
   accent: AccentId
@@ -82,6 +87,7 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   providerId: 'yt',
+  region: '',
   accent: 'violet',
   theme: 'noir',
   glow: true,

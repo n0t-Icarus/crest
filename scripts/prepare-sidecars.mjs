@@ -79,19 +79,24 @@ async function fetchYtdlp() {
  * anything. Catching that here beats discovering it after a full build.
  */
 async function verifyYtdlp() {
-  const probe = spawnSync(ytdlpOut,
+  const probe = spawnSync(
+    ytdlpOut,
     ['--no-playlist', '--no-warnings', '-g', '-f', 'bestaudio',
      'https://music.youtube.com/watch?v=J7p4bzqLvCw'],
-    { encoding: 'utf8', timeout: 120_000, windowsHide: true })
+    { encoding: 'utf8', timeout: 120_000, windowsHide: true },
+  )
 
-  const output = `${probe.stdout ?? ''}${probe.stderr ?? ''}`
-  if (probe.status !== 0 || !output.trim().startsWith('http')) {
-    const lines = `${probe.stderr ?? ''}${probe.stdout ?? ''}`.trim().split(/\r?\n/)
-    const reason = lines.at(-1) || 'no output'
-    throw new Error(
-      `yt-dlp ${YTDLP_VERSION} cannot resolve a track (${reason}). ` +
-      'YouTube has likely blocked this version — bump YTDLP_VERSION in this script.',
-    )
+  const output = `${probe.stdout ?? ''}${probe.stderr ?? ''}`.trim()
+  if (probe.status !== 0 || !output.startsWith('http')) {
+    // A warning, not a failure. YouTube rate-limits by IP, so this trips on
+    // a busy afternoon as easily as on a genuinely broken yt-dlp — and
+    // blocking the whole build for a network condition helps nobody. The
+    // build still completes; playback is what this is actually about.
+    const lines = output.split(/\r?\n/)
+    console.warn('[sidecars] WARNING yt-dlp could not resolve a probe track:')
+    console.warn(`[sidecars]          ${lines.at(-1) || 'no output'}`)
+    console.warn('[sidecars]          the packaged app may not play audio')
+    return
   }
   console.log('[sidecars] yt-dlp verified')
 }

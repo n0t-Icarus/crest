@@ -47,22 +47,87 @@ struct MediaHelper(Mutex<Option<Child>>);
 /// Layout (set up by `src-tauri/tauri.bundle.conf.json`): the two sidecars are
 /// installed next to the app executable, the bundled helper script is a
 /// resource under `helper/`.
+/// Write a startup failure somewhere a user (or a bug report) can actually see.
+/// A release build is a GUI app: `eprintln!` goes nowhere, which is how a
+/// broken helper can end up looking like "the network is down".
+fn log_startup_failure(message: &str) {
+    append_startup_log(message);
+    eprintln!("[crest] {message}");
+}
+
+fn append_startup_log(message: &str) {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            use std::io::Write;
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(dir.join("crest-startup.log"))
+            {
+                let _ = writeln!(file, "{message}");
+            }
+        }
+    }
+}
+
+/// Strip the Windows `\?` verbatim prefix from a path.
+///
+/// Win32 APIs accept either form, but Node does not: its module loader reads
+/// the prefix as part of the path, so a helper launched with
+/// `\?C:...mediaHelper.bundle.mjs` dies immediately with
+/// "Cannot find module". `resource_dir()` returns the verbatim form, so it has
+/// to be normalised before the path is handed to a child process.
+fn strip_verbatim_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
+    #[cfg(windows)]
+    {
+        let text = path.to_string_lossy().to_string();
+        if let Some(rest) = text.strip_prefix(r#"\\?\"#) {
+            if let Some(unc) = rest.strip_prefix(r"UNC\") {
+                return std::path::PathBuf::from(format!(r"\\{unc}"));
+            }
+            return std::path::PathBuf::from(rest);
+        }
+    }
+    path
+}
+
 fn spawn_media_helper(app: &tauri::AppHandle) -> Result<Child, String> {
     let exe_dir = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .parent()
         .map(|p| p.to_path_buf())
         .ok_or_else(|| "cannot locate the app directory".to_string())?;
-    let node = exe_dir.join("node.exe");
-    let ytdlp = exe_dir.join("yt-dlp.exe");
-    let script = app
-        .path()
-        .resource_dir()
-        .map_err(|e| e.to_string())?
-        .join("helper")
-        .join("mediaHelper.bundle.mjs");
+    let node = strip_verbatim_prefix(exe_dir.join("node.exe"));
+    let ytdlp = strip_verbatim_prefix(exe_dir.join("yt-dlp.exe"));
 
-    for required in [&node, &ytdlp, &script] {
+    // The helper script is a bundle resource. Where that lands depends on the
+    // installer, and `resource_dir()` has pointed at different roots across
+    // Tauri versions and install modes — so try the declared resource root
+    // first and fall back to the directory the executable actually sits in.
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(dir) = app.path().resource_dir() {
+        candidates.push(dir.join("helper").join("mediaHelper.bundle.mjs"));
+    }
+    candidates.push(exe_dir.join("helper").join("mediaHelper.bundle.mjs"));
+    candidates.push(exe_dir.join("mediaHelper.bundle.mjs"));
+
+    let script = candidates
+        .iter()
+        .find(|candidate| candidate.exists())
+        .cloned()
+        .map(strip_verbatim_prefix)
+        .ok_or_else(|| {
+            format!(
+                "missing media helper script; looked in {}",
+                candidates
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
+
+    for required in [&node, &ytdlp] {
         if !required.exists() {
             return Err(format!("missing media helper file: {}", required.display()));
         }
@@ -110,7 +175,7 @@ pub fn run() {
                             *slot = Some(child);
                         };
                     }
-                    Err(message) => eprintln!("[crest] media helper not started: {message}"),
+                    Err(message) => log_startup_failure(&format!("media helper not started: {message}")),
                 }
             }
 

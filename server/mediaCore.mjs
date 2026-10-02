@@ -36,9 +36,113 @@ const REPLAYED_HEADERS = new Set(['user-agent', 'accept', 'accept-language', 're
 /* yt-dlp resolution                                                          */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * YouTube player clients to try, in order.
+ *
+ * The default web client is gated by a bot check from a lot of IPs: yt-dlp
+ * comes back with "Sign in to confirm you're not a bot", the helper turns that
+ * into a 500, and the media element reports it as an unsupported source — a
+ * lie, because the track plays perfectly well in a browser. `web_embedded` is
+ * not behind that check, so it leads; the rest are recovery for the day
+ * YouTube gates a different set. Verified 5/5 tracks on a rate-limited IP.
+ */
+const PLAYER_CLIENTS = ['web_embedded', 'web', 'default']
+
+/** The client that worked last, so the common path costs one child process. */
+let preferredClient = PLAYER_CLIENTS[0]
+
 /** googlevideo URLs expire ~6h but rotate sooner; keep the cache short. */
 const resolutionCache = new TtlCache(9.5 * 60_000, 64)
 const inflight = new Map()
+
+/**
+ * Turn a yt-dlp failure into something the UI can say something true about.
+ *
+ * Without this the only thing that reaches the player is a wall of yt-dlp
+ * text, and the app has to guess: it used to guess "unsupported source", which
+ * sent users looking for a broken track that was actually blocked upstream.
+ */
+function classifyFailure(stderr, code) {
+  const text = String(stderr ?? '').toLowerCase()
+  if (text.includes('not a bot') || text.includes('sign in to confirm')) return 'rate_limited'
+  if (text.includes('private video')) return 'private'
+  if (text.includes('age') && text.includes('restricted')) return 'age_restricted'
+  if (text.includes('not available in your country') || text.includes('geo')) return 'geo_blocked'
+  if (text.includes('removed') || text.includes('unavailable') || text.includes('deleted')) return 'unavailable'
+  if (text.includes('timed out')) return 'timeout'
+  if (code === 0) return 'no_stream'
+  return 'error'
+}
+
+/** Run yt-dlp once against one player client. */
+function runYtDlp(videoId, client) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '--no-playlist',
+      '--no-warnings',
+      '--no-check-certificates',
+      '-g',
+      '-f', FORMAT,
+      '--print', '%(http_headers)j',
+    ]
+    // 'default' means "let yt-dlp choose", which is expressed by not passing it.
+    if (client !== 'default') args.push('--extractor-args', `youtube:player_client=${client}`)
+    args.push(`https://music.youtube.com/watch?v=${videoId}`)
+
+    const child = spawn(YT_DLP, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      child.kill()
+      const error = new Error('yt-dlp timed out')
+      error.reason = 'timeout'
+      reject(error)
+    }, YT_DLP_TIMEOUT_MS)
+
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.on('error', (err) => { clearTimeout(timer); reject(err) })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      const resolution = parseResolution(stdout.trim())
+      if (code === 0 && resolution.url) {
+        resolve(resolution)
+        return
+      }
+      const errorLine = stderr.split('\n').map((line) => line.trim()).filter(Boolean).pop()
+      const error = new Error(errorLine ?? `yt-dlp exited ${code}`)
+      error.reason = classifyFailure(stderr, code)
+      reject(error)
+    })
+  })
+}
+
+/**
+ * Try each player client until one resolves.
+ *
+ * A track that genuinely cannot play (private, removed, geo-blocked) is not a
+ * client problem, so those stop immediately rather than spawning three more
+ * yt-dlp processes to reach the same verdict.
+ */
+async function resolveAcrossClients(videoId) {
+  const order = [preferredClient, ...PLAYER_CLIENTS.filter((client) => client !== preferredClient)]
+  let lastError = null
+  for (const client of order) {
+    try {
+      const resolution = await runYtDlp(videoId, client)
+      preferredClient = client
+      return resolution
+    } catch (error) {
+      lastError = error
+      if (error?.reason && error.reason !== 'rate_limited' && error.reason !== 'no_stream') throw error
+    }
+  }
+  throw lastError ?? Object.assign(new Error('yt-dlp produced no stream'), { reason: 'no_stream' })
+}
 
 function pickHeaders(raw) {
   const picked = {}
@@ -94,7 +198,7 @@ function parseResolution(stdout) {
  *
  * Short-lived child process; on success we read stdout and let the process
  * exit on its own. `-g` is simulate-only, so nothing is downloaded or written
- * to disk.
+ * to disk. Rejections carry a `reason` code the UI turns into a real message.
  *
  * @param {string} videoId
  * @param {{ fresh?: boolean }} [options] `fresh` skips (and replaces) the cached entry.
@@ -110,48 +214,16 @@ export function resolveAudio(videoId, options = {}) {
     if (running) return running
   }
 
-  const job = new Promise((resolve, reject) => {
-    const args = [
-      '--no-playlist',
-      '--no-warnings',
-      '--no-check-certificates',
-      '-g',
-      '-f', FORMAT,
-      '--print', '%(http_headers)j',
-      `https://music.youtube.com/watch?v=${cleanVid}`,
-    ]
-
-    const child = spawn(YT_DLP, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+  const job = resolveAcrossClients(cleanVid)
+    .then((resolution) => {
+      resolutionCache.set(cleanVid, resolution)
+      return resolution
+    })
+    .finally(() => {
+      if (inflight.get(cleanVid) === job) inflight.delete(cleanVid)
     })
 
-    let stdout = ''
-    let stderr = ''
-    const timer = setTimeout(() => {
-      child.kill()
-      reject(new Error('yt-dlp timed out'))
-    }, YT_DLP_TIMEOUT_MS)
-
-    child.stdout.on('data', (chunk) => { stdout += chunk })
-    child.stderr.on('data', (chunk) => { stderr += chunk })
-    child.on('error', (err) => { clearTimeout(timer); reject(err) })
-    child.on('close', (code) => {
-      clearTimeout(timer)
-      const resolution = parseResolution(stdout.trim())
-      if (code === 0 && resolution.url) {
-        resolutionCache.set(videoId, resolution)
-        resolve(resolution)
-      } else {
-        const errorLine = stderr.split('\n').map((line) => line.trim()).filter(Boolean).pop()
-        reject(new Error(errorLine ?? `yt-dlp exited ${code}`))
-      }
-    })
-  }).finally(() => {
-    if (inflight.get(videoId) === job) inflight.delete(videoId)
-  })
-
-  inflight.set(videoId, job)
+  inflight.set(cleanVid, job)
   return job
 }
 
