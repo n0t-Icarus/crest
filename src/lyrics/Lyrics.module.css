@@ -1,0 +1,179 @@
+/* Queue panel preview ---------------------------------------------------- */
+.previewCard {
+  margin-top: 10px;
+  padding: 13px 14px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.014);
+}
+
+.previewScroll {
+  max-height: 132px;
+  min-height: 92px;
+  overflow-y: auto;
+}
+
+.previewList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.previewLine {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  transition: color var(--dur-2) var(--ease), opacity var(--dur-2) var(--ease);
+}
+
+.previewLineEmpty {
+  height: 6px;
+}
+
+.previewLineActive {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.previewOpen {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.previewOpen:hover {
+  color: var(--text-1);
+}
+
+.empty {
+  margin-top: 10px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* Full lyrics view ------------------------------------------------------ */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-top: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.headerMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eyebrow {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.headerTitle {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.headerArtist {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.badge {
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.badgeSynced {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+
+.stage {
+  position: relative;
+  height: min(52vh, 460px);
+  overflow-y: auto;
+  padding: 28vh 8px;
+  scroll-behavior: smooth;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.line {
+  max-width: 720px;
+  color: var(--text-2);
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0.42;
+  transition: opacity var(--dur-3) var(--ease), color var(--dur-3) var(--ease),
+    transform var(--dur-3) var(--ease-out);
+}
+
+.lineActive {
+  color: var(--text-1);
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.lineNear {
+  opacity: 0.6;
+}
+
+.lineEmpty {
+  height: 8px;
+}
+
+@media (max-width: 999px) {
+  .line {
+    font-size: 17px;
+  }
+  .headerTitle {
+    font-size: 20px;
+  }
+}

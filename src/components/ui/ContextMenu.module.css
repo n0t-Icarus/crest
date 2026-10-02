@@ -1,0 +1,100 @@
+.menu {
+  position: fixed;
+  z-index: 300;
+  width: 232px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: rgba(16, 17, 21, 0.97);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(12px);
+  animation: veluneScaleIn var(--dur-2) var(--ease-out);
+  transform-origin: top left;
+  outline: none;
+}
+
+.submenu {
+  z-index: 310;
+  animation-duration: var(--dur-1);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.item:hover:not(:disabled),
+.itemActive {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-1);
+}
+
+.item:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.itemDanger {
+  color: #e6858d;
+}
+
+.itemDanger:hover:not(:disabled) {
+  background: rgba(224, 85, 94, 0.12);
+  color: #f0a1a7;
+}
+
+.itemIcon {
+  display: flex;
+  width: 16px;
+  flex: none;
+  color: var(--text-3);
+}
+
+.item:hover:not(:disabled) .itemIcon,
+.itemActive .itemIcon {
+  color: var(--text-2);
+}
+
+.itemLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemNote {
+  flex: none;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.itemShortcut {
+  flex: none;
+  color: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemChevron {
+  flex: none;
+  color: var(--text-3);
+}
+
+.separator {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--line);
+}

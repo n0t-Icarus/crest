@@ -1,0 +1,29 @@
+[package]
+name = "crest"
+version = "0.1.0"
+description = "Crest — a lightweight Windows desktop music client."
+authors = ["Crest"]
+edition = "2021"
+rust-version = "1.77"
+default-run = "crest"
+
+[lib]
+name = "crest_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Release profile tuned for a small, fast install (Phase 11 packages this).
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

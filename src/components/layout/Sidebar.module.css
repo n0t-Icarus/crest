@@ -1,0 +1,256 @@
+.sidebar {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  width: var(--sidebar-w);
+  padding: 0 12px 10px;
+  transition: width var(--dur-3) var(--ease-out);
+}
+
+:global(.shell[data-resizing='true']) .sidebar,
+.sidebar[data-resizing='true'] {
+  transition: none !important;
+}
+
+.sidebar[data-collapsed='true'] {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* Brand ----------------------------------------------------------------- */
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-h);
+  flex: none;
+}
+
+.brandCollapsedBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.brandCollapsedBtn:hover {
+  opacity: 0.8;
+}
+
+.sidebarToggle {
+  opacity: 0.7;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.sidebarToggle:hover {
+  opacity: 1;
+}
+
+/* Navigation ------------------------------------------------------------ */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+  margin-top: 4px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.navItem:hover {
+  background: var(--surface-hover);
+  color: var(--text-1);
+}
+
+.navItem[data-active='true'] {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.navIcon {
+  flex: none;
+  color: var(--text-3);
+  transition: color var(--dur-1) var(--ease);
+}
+
+.navItem:hover .navIcon,
+.navItem[data-active='true'] .navIcon {
+  color: var(--text-1);
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar[data-collapsed='true'] .navItem {
+  justify-content: center;
+  padding: 0;
+}
+
+/* Playlists ------------------------------------------------------------- */
+.playlistsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 0 4px 0 11px;
+  flex: none;
+}
+
+.sidebar[data-collapsed='true'] .playlistsHeader {
+  justify-content: center;
+  padding: 0;
+  margin-top: 16px;
+}
+
+.playlistsTitle {
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.playlists {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding-right: 2px;
+  min-height: 0;
+  flex: 1;
+}
+
+.playlistRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.sidebar[data-collapsed='true'] .playlistRow {
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.playlistRow:hover,
+.playlistRow[data-active='true'] {
+  background: var(--surface-hover);
+}
+
+.playlistRow[data-active='true'] {
+  background: var(--surface-2);
+}
+
+.playlistArt {
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.playlistRow:hover .playlistArt {
+  transform: scale(1.04);
+}
+
+.playlistText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.playlistName {
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlistCount {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.emptyPlaylists {
+  padding: 8px 11px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* Account --------------------------------------------------------------- */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: none;
+  margin-top: 10px;
+  padding: 10px 8px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.sidebar[data-collapsed='true'] .account {
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.accountTile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(160deg, #1b1e27, #0d0f14);
+  border: 1px solid var(--line-strong);
+  color: var(--text-1);
+}
+
+.accountText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.accountName {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountSub {
+  color: var(--text-3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

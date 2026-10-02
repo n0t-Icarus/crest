@@ -1,0 +1,223 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding-bottom: 8px;
+}
+
+/* Hero ------------------------------------------------------------------- */
+.hero {
+  position: relative;
+  height: 232px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #0a0b10;
+  isolation: isolate;
+}
+
+.heroArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.heroScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(4, 5, 9, 0.9) 0%, rgba(4, 5, 9, 0.5) 44%, rgba(4, 5, 9, 0.06) 100%),
+    linear-gradient(180deg, rgba(4, 5, 9, 0.06) 40%, rgba(4, 5, 9, 0.5) 100%);
+  pointer-events: none;
+}
+
+.heroSkyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 116px;
+  pointer-events: none;
+}
+
+.heroContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 42px;
+  max-width: 62%;
+}
+
+.heroEyebrow {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-size: 33px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.08;
+  max-width: 320px;
+}
+
+.heroSubtitle {
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.heroNav {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heroDots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+}
+
+.heroDots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  transition: background var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+
+.heroDots i[data-active] {
+  background: rgba(255, 255, 255, 0.88);
+  transform: scale(1.15);
+}
+
+.heroSkeleton {
+  height: 232px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, #0d0f14 0%, #14161c 50%, #0d0f14 100%);
+  background-size: 200% 100%;
+  animation: veluneShimmer 1.8s var(--ease) infinite;
+}
+
+/* Mood rail ---------------------------------------------------------------- */
+.moodRail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-top: -6px;
+}
+
+.moodRail::-webkit-scrollbar {
+  display: none;
+}
+
+.moodChip {
+  flex: 0 0 auto;
+  padding: 7px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-2) var(--ease), background var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+
+.moodChip:hover {
+  color: var(--text-1);
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.moodChip[data-active] {
+  background: var(--btn-solid);
+  border-color: var(--btn-solid);
+  color: var(--btn-ink);
+  font-weight: 600;
+}
+
+.moodChip[data-pending] {
+  opacity: 0.55;
+}
+
+/* Sections --------------------------------------------------------------- */
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.cardRow {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 4px;
+}
+
+.mixRow {
+  display: flex;
+  gap: 12px;
+}
+
+/** YouTube's shelf captions are shouted; render them as a quiet subtitle. */
+.strapline {
+  margin: -4px 0 10px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.trackList {
+  overflow: hidden;
+}
+
+.loadingHint {
+  align-self: flex-start;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+@media (max-width: 1239px) {
+  .hero {
+    height: 208px;
+  }
+  .heroTitle {
+    font-size: 27px;
+  }
+  .heroContent {
+    padding: 0 30px;
+  }
+}
+
+@media (max-width: 999px) {
+  .heroContent {
+    max-width: 100%;
+    padding: 0 20px;
+  }
+  .heroNav {
+    display: none;
+  }
+}

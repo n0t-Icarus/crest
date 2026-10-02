@@ -1,0 +1,16 @@
+.overlay {
+  position: fixed;
+  left: calc(var(--window-pad) + 8px);
+  bottom: calc(var(--player-h) + var(--window-pad) + 8px);
+  z-index: 600;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: rgba(6, 7, 10, 0.92);
+  color: #9fe0b5;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre;
+  pointer-events: none;
+}

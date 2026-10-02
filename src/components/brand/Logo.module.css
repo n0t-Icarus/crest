@@ -1,0 +1,28 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  color: var(--text-1);
+  user-select: none;
+}
+
+.collapsed {
+  padding-left: 0;
+  justify-content: center;
+}
+
+.mark {
+  color: #eef0f4;
+  filter: drop-shadow(0 0 10px rgba(160, 170, 255, 0.22));
+}
+
+.word {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  /* The trailing letter-space would offset the mark; compensate. */
+  margin-right: -0.34em;
+  font-feature-settings: 'ss01';
+}

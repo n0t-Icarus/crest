@@ -1,0 +1,506 @@
+/* Section headers -------------------------------------------------------- */
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+
+.seeAll {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.seeAll:hover {
+  color: var(--text-1);
+}
+
+/* Track cards ------------------------------------------------------------ */
+.mediaCard {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 140px;
+  flex: none;
+}
+
+.mediaArtWrap {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mediaArt {
+  width: 100%;
+  aspect-ratio: 1;
+  transition: transform var(--dur-3) var(--ease-out), filter var(--dur-3) var(--ease-out);
+}
+
+/* Whole-artwork hit area that opens the collection. */
+.mediaOpen {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.mediaOpen:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mediaCard:hover .mediaArt {
+  transform: scale(1.035);
+  filter: brightness(1.06);
+}
+
+.mediaPlay {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--btn-solid);
+  color: var(--btn-ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 16px var(--glow), 0 0 36px var(--glow-broad);
+  opacity: 0;
+  transform: translateY(6px) scale(0.94);
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease-out);
+}
+
+.mediaCard:hover .mediaPlay,
+.mediaCard:focus-within .mediaPlay {
+  opacity: 1;
+  transform: none;
+}
+
+.mediaPlay:hover {
+  background: color-mix(in srgb, var(--btn-solid) 72%, #ffffff);
+}
+
+.mediaMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mediaTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mediaTitle:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The reference keeps the ··· menu in the title row at rest, not on hover. */
+.mediaMenu {
+  opacity: 0.55;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.mediaCard:hover .mediaMenu,
+.mediaCard:focus-within .mediaMenu {
+  opacity: 1;
+}
+
+.mediaCard:hover .hoverReveal,
+.mediaCard:focus-within .hoverReveal {
+  opacity: 1;
+}
+
+.mediaArtist {
+  width: 100%;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 11.5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.mediaArtist:hover {
+  color: var(--text-2);
+}
+
+.collectionCard {
+  width: 152px;
+}
+
+.hoverReveal {
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.hoverReveal:focus-within {
+  opacity: 1;
+}
+
+/* Mix cards -------------------------------------------------------------- */
+.mixCard {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 178px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out);
+}
+
+.mixCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
+.mixArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mixScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 5, 8, 0.05) 30%, rgba(4, 5, 8, 0.86) 100%);
+}
+
+.mixContent {
+  position: absolute;
+  inset: auto 12px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mixTitle {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding-right: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The subtitle reserves the corner the play button occupies, so the full
+   sentence still fits on one line at every supported width. */
+.mixSubtitle {
+  padding-right: 25px;
+  color: var(--text-2);
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * The play button tucks into the card's bottom-right corner, aligned with the
+ * text block rather than sitting below it — the reference's arrangement.
+ */
+.mixPlay {
+  position: absolute;
+  right: 8px;
+  bottom: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--btn-solid);
+  color: var(--btn-ink);
+  box-shadow: 0 0 16px var(--glow), 0 0 36px var(--glow-broad);
+  transition: transform var(--dur-2) var(--ease-out), background var(--dur-1) var(--ease);
+}
+
+.mixPlay:hover {
+  background: color-mix(in srgb, var(--btn-solid) 72%, #ffffff);
+  transform: scale(1.07);
+}
+
+
+/* Song table ------------------------------------------------------------- */
+.songList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.songRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--row-h);
+  padding: 0 10px 0 12px;
+  border-radius: var(--radius-sm);
+  /* Off-screen rows skip layout and paint work. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--row-h);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.songRow:hover,
+.songRow:focus-within {
+  background: var(--surface-hover);
+}
+
+.songRowActive {
+  background: rgba(var(--overlay-rgb), 0.035);
+}
+
+.songRow[data-dragging='true'] {
+  opacity: 0.45;
+}
+
+.songRow[data-drop='above']::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.songRow {
+  position: relative;
+}
+
+.songIndex {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 22px;
+  flex: none;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nowBars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.nowBars i {
+  display: block;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: veluneBounce 1s var(--ease) infinite;
+}
+
+.nowBars i:nth-child(1) {
+  height: 60%;
+  animation-delay: -0.2s;
+}
+.nowBars i:nth-child(2) {
+  height: 100%;
+}
+.nowBars i:nth-child(3) {
+  height: 45%;
+  animation-delay: -0.4s;
+}
+
+@keyframes veluneBounce {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.songGrip {
+  display: flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-3);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.songRow:hover .songGrip {
+  opacity: 0.7;
+}
+
+.songPlayArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.songText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.songTitle {
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songRowActive .songTitle {
+  color: var(--accent);
+}
+
+.songArtist {
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songArtBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.songTitleBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.songTitleBtn:hover {
+  text-decoration: underline;
+}
+
+.songRowActive .songTitleBtn {
+  color: var(--accent);
+}
+
+.songArtistBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.songArtistBtn:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+.songAlbumBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  flex: 0 1 220px;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.songAlbumBtn:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+.songAlbum {
+  flex: 0 1 220px;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songDuration {
+  flex: none;
+  width: 42px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.songActions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: none;
+  width: 62px;
+  justify-content: flex-end;
+}
+
+.virtualWrap {
+  position: relative;
+  width: 100%;
+}
+
+@media (max-width: 999px) {
+  .songAlbum {
+    display: none;
+  }
+}

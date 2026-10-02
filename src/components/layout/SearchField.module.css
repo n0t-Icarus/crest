@@ -1,0 +1,92 @@
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 496px;
+  height: 34px;
+  padding: 0 8px 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease);
+}
+
+.field:hover {
+  background: #212429;
+}
+
+.field:focus-within {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #23262c;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+}
+
+.compact {
+  max-width: none;
+}
+
+.icon {
+  flex: none;
+  color: var(--text-3);
+  transition: color var(--dur-2) var(--ease);
+}
+
+.field:focus-within .icon {
+  color: var(--text-2);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 12.5px;
+  user-select: text;
+}
+
+.input::placeholder {
+  color: var(--text-3);
+}
+
+.input:focus {
+  outline: none;
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.kbd {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--text-3);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+}

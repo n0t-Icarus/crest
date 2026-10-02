@@ -1,0 +1,68 @@
+.skeleton {
+  background: linear-gradient(90deg, #0f1116 0%, #16181e 50%, #0f1116 100%);
+  background-size: 200% 100%;
+  animation: veluneShimmer 1.8s var(--ease) infinite;
+  flex: none;
+}
+
+.xs {
+  border-radius: var(--radius-xs);
+}
+.sm {
+  border-radius: var(--radius-sm);
+}
+.md {
+  border-radius: var(--radius-md);
+}
+.lg {
+  border-radius: var(--radius-lg);
+}
+.pill {
+  border-radius: var(--radius-pill);
+}
+.circle {
+  border-radius: 50%;
+}
+
+.cardRow,
+.mixRow {
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.cardLine {
+  margin-top: 2px;
+}
+
+.mix {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.songList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.songRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--row-h);
+}
+
+.songText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}

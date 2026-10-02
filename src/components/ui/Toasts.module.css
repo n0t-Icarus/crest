@@ -1,0 +1,82 @@
+.host {
+  position: fixed;
+  right: calc(var(--window-pad) + 8px);
+  bottom: calc(var(--player-h) + var(--window-pad) + 10px);
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: rgba(18, 19, 24, 0.97);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  animation: veluneFadeIn var(--dur-3) var(--ease-out);
+}
+
+.toast[data-tone='error'] .icon {
+  color: #eb8b93;
+}
+
+.toast[data-tone='success'] .icon {
+  color: #7fd0a0;
+}
+
+.toast[data-tone='neutral'] .icon {
+  color: var(--text-2);
+}
+
+.icon {
+  display: flex;
+  flex: none;
+}
+
+.message {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-1);
+}
+
+.action {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.action:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text-1);
+}

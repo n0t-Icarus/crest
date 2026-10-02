@@ -1,0 +1,37 @@
+{
+  "name": "crest",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Crest (codename Nabito) — a lightweight Windows desktop music client.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "helper:bundle": "node scripts/build-helper.mjs",
+    "sidecars": "node scripts/prepare-sidecars.mjs",
+    "desktop:build": "npm run helper:bundle && npm run sidecars && tauri build --config src-tauri/tauri.bundle.conf.json",
+    "icons": "python scripts/make_icons.py"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.13",
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-window-state": "^2.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "youtubei.js": "^18.1.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}

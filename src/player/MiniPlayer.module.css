@@ -1,0 +1,70 @@
+.mini {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  border-color: var(--line);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 200px;
+  gap: 1px;
+}
+
+.title {
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist {
+  color: var(--text-3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 2px;
+  border-radius: 50%;
+  background: var(--btn-solid);
+  color: var(--btn-ink);
+  box-shadow: 0 0 16px var(--glow), 0 0 38px var(--glow-broad);
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.play:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--btn-solid) 72%, #ffffff);
+  transform: scale(1.04);
+}
+
+.play:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.progress {
+  flex: 1;
+  min-width: 0;
+}

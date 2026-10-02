@@ -1,0 +1,120 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* Tight gutters: the panel is narrow, and every pixel here is text. */
+  gap: 6px;
+  padding: 4px 2px 4px 5px;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
+}
+
+.row:hover,
+.row:focus-visible {
+  background: var(--surface-hover);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.row[data-dragging='true'] {
+  opacity: 0.45;
+}
+
+.row[data-drop='above']::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.playArea {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.title {
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist {
+  color: var(--text-3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row:hover .artist {
+  color: var(--text-2);
+}
+
+.artist:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.duration {
+  flex: none;
+  color: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: none;
+}
+
+.grip {
+  display: flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-3);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.row:hover .grip {
+  opacity: 0.7;
+}
+
+[data-compact='true'] .title {
+  font-size: 12px;
+}
+
+[data-compact='true'] .row {
+  padding-left: 4px;
+}

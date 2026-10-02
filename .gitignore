@@ -1,0 +1,30 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/binaries/
+server-dist/
+*.orig
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Freebuff workspace metadata (local session id)
+.freebuff/
+
+# Debug leftovers: minified YouTube player scripts captured while working on
+# the media pipeline. ~2.6 MB each, not referenced by any source file.
+*-player-script.js

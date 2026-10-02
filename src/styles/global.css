@@ -1,0 +1,260 @@
+/* ---------------------------------------------------------------------------
+   Global reset + shared primitives
+   --------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/Inter-Variable-latin.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Manrope Variable';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/Manrope-Variable-latin.woff2') format('woff2-variations');
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  /* Desktop app: text is UI chrome, not a document. */
+  user-select: none;
+  cursor: default;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Draggable window chrome ------------------------------------------------ */
+[data-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+[data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Scrollbars: thin, dark, overlay-like ---------------------------------- */
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+.scroll-y::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll-y::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-y::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+.scroll-y:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+}
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 0;
+}
+
+/* Panels ---------------------------------------------------------------- */
+/* Every major region (sidebar, content, queue) is a bordered panel sitting on
+   the darker canvas, exactly as in the reference. */
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+/* Utility --------------------------------------------------------------- */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clampTwo {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Skeleton shimmer (paused when animations are off) --------------------- */
+@keyframes veluneShimmer {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+@keyframes crestShimmer {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes veluneFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes crestFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes veluneScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes crestScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes veluneSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes crestSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

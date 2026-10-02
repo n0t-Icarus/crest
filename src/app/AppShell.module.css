@@ -1,0 +1,81 @@
+.shell {
+  height: 100%;
+  display: grid;
+  gap: var(--gutter);
+  padding: var(--window-pad);
+  background: var(--canvas);
+  overflow: hidden;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--player-h);
+}
+
+.shell[data-queue='open'] {
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--queue-w);
+}
+
+.shell[data-sidebar='collapsed'] {
+  --sidebar-w: var(--sidebar-w-collapsed);
+}
+
+.shell[data-mini='true'] {
+  --player-h: 56px;
+}
+
+.shell[data-resizing='true'] {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize;
+}
+
+.shell[data-resizing='true'] * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Grid placement lives with each region (Sidebar/QueuePanel/PlayerBar) so this
+   file only has to describe the grid itself. */
+.content {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 22px 30px;
+  /* Cheap containment: off-screen sections skip layout/paint work. */
+  contain: paint style;
+}
+
+.page {
+  animation: velunePageIn var(--dur-3) var(--ease-out);
+}
+
+@keyframes velunePageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Narrow windows: trim the generous padding so content keeps its breath. */
+@media (max-width: 1239px) {
+  .scroll {
+    padding: 0 16px 24px;
+  }
+}
+
+@media (max-width: 999px) {
+  .shell {
+    gap: 10px;
+    padding: 8px;
+  }
+  .scroll {
+    padding: 0 12px 20px;
+  }
+}

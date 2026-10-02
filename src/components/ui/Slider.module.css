@@ -1,0 +1,94 @@
+.slider {
+  position: relative;
+  flex: 1;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.slider[data-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-pill);
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: var(--slider-track-h, 3px);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-pill);
+  background: var(--text-1);
+}
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  width: var(--slider-thumb, 9px);
+  height: var(--slider-thumb, 9px);
+  margin-left: calc(var(--slider-thumb, 9px) / -2);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  transform: translateY(-50%);
+  transition: transform var(--dur-1) var(--ease);
+  pointer-events: none;
+}
+
+/* Progress variant: wide, hairline, thumb appears on hover/drag ------------- */
+.slider[data-variant='progress'] {
+  --slider-track-h: 2px;
+  --slider-thumb: 10px;
+  height: 16px;
+}
+
+.slider[data-variant='progress'] .track {
+  transition: height var(--dur-2) var(--ease);
+}
+
+.slider[data-variant='progress']:hover .track,
+.slider[data-variant='progress'][data-dragging='true'] .track {
+  height: 3px;
+}
+
+.slider[data-variant='progress'][data-thumb-hover='true'] .thumb {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.6);
+}
+
+.slider[data-variant='progress'][data-thumb-hover='true']:hover .thumb,
+.slider[data-variant='progress'][data-thumb-hover='true'][data-dragging='true'] .thumb,
+.slider[data-variant='progress'][data-thumb-hover='true']:focus-visible .thumb {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.slider[data-dragging='true'] .thumb {
+  transform: translateY(-50%) scale(1.15);
+}
+
+/* Volume variant: shorter, thicker, smaller thumb -------------------------- */
+.slider[data-variant='volume'] {
+  --slider-track-h: 4px;
+  --slider-thumb: 11px;
+  height: 18px;
+}
+
+.slider[data-variant='volume'] .fill {
+  background: #e9ebf0;
+}

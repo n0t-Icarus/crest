@@ -1,0 +1,166 @@
+/* ---------------------------------------------------------------------------
+   Crest design tokens
+   Every colour in the app flows from here. Theme presets (Settings →
+   Appearance) are attribute blocks that re-map the same token names, and the
+   custom theme paints them as inline CSS variables on <html>, which override
+   both this file and the preset blocks.
+   --------------------------------------------------------------------------- */
+
+:root,
+[data-theme='noir'] {
+  color-scheme: dark;
+
+  /* Frames & surfaces -------------------------------------------------- */
+  --canvas: #060607; /* space between the panels */
+  --panel: #0b0b0c; /* sidebar / content / queue panels */
+  --panel-raised: #0e0e0f;
+  --surface-1: #141415; /* resting cards, artwork placeholders */
+  --surface-2: #1c1c1e; /* selected nav item, tabs, chips */
+  --surface-3: #242426; /* search field, text inputs */
+  --control: #131315; /* selects, comboboxes */
+
+  /* Translucent overlays derive from one ink so light themes flip them. */
+  --overlay-rgb: 255, 255, 255;
+  --surface-hover: rgba(var(--overlay-rgb), 0.05);
+  --surface-active: rgba(var(--overlay-rgb), 0.085);
+  --line-subtle: rgba(var(--overlay-rgb), 0.055);
+
+  --line: #1a1a1c;
+  --line-strong: #2a2a2d;
+
+  /* Typography --------------------------------------------------------- */
+  --text-1: #f5f5f6;
+  --text-2: #a9a9ae;
+  --text-3: #707076;
+  --text-inverse: #0a0a0b;
+
+  /* Solid "white button" treatment (play button, primary actions) ------- */
+  --btn-solid: #f4f4f5;
+  --btn-ink: #0a0a0b;
+
+  /* Accent (user configurable in Settings → Appearance) ---------------- */
+  --accent: #f2f2f3;
+  --accent-strong: color-mix(in srgb, var(--accent) 84%, #ffffff);
+  --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
+  --accent-contrast: #0a0a0b;
+
+  /* Glow: soft halo on white/accent elements (Settings → Appearance) --- */
+  --glow-color: #ffffff;
+  --glow: color-mix(in srgb, var(--glow-color) 42%, transparent);
+  --glow-broad: color-mix(in srgb, var(--glow-color) 22%, transparent);
+
+  /* Geometry ----------------------------------------------------------- */
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --sidebar-w: 232px;
+  --sidebar-w-collapsed: 74px;
+  --queue-w: 292px;
+  --header-h: 56px;
+  --player-h: 78px;
+  --gutter: 14px;
+  --window-pad: 12px;
+  --row-h: 44px;
+
+  /* Elevation ---------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.68);
+
+  /* Motion ------------------------------------------------------------- */
+  --dur-1: 110ms;
+  --dur-2: 180ms;
+  --dur-3: 280ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Fonts -------------------------------------------------------------- */
+  --font-ui: 'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Manrope Variable', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
+}
+
+/* Midnight — the original deep-blue studio look, violet accent. ---------- */
+[data-theme='midnight'] {
+  color-scheme: dark;
+  --canvas: #07080c;
+  --panel: #04050a;
+  --panel-raised: #07080d;
+  --surface-1: #0e1015;
+  --surface-2: #15181d;
+  --surface-3: #1d2026;
+  --control: #0d0f13;
+  --overlay-rgb: 255, 255, 255;
+  --line: #14161c;
+  --line-strong: #20242b;
+  --text-1: #f2f3f5;
+  --text-2: #a3a8b0;
+  --text-3: #6d737c;
+  --text-inverse: #0a0b0f;
+  --btn-solid: #ecedf1;
+  --btn-ink: #0b0c10;
+  --accent: #7c6cf2;
+  --accent-contrast: #ffffff;
+  --glow-color: #8f81f5;
+}
+
+/* Glacier — daylight variant: white panels, dark ink overlays. ----------- */
+[data-theme='glacier'] {
+  color-scheme: light;
+  --canvas: #e6e8ec;
+  --panel: #f7f8fa;
+  --panel-raised: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #eceef2;
+  --surface-3: #e2e5ea;
+  --control: #ffffff;
+  --overlay-rgb: 22, 24, 29;
+  --line: #d9dce1;
+  --line-strong: #c4c9d1;
+  --text-1: #16181d;
+  --text-2: #4d545e;
+  --text-3: #7f8791;
+  --text-inverse: #ffffff;
+  --btn-solid: #131418;
+  --btn-ink: #ffffff;
+  --accent: #131418;
+  --accent-contrast: #ffffff;
+  --glow-color: #6f7a8c;
+  --shadow-1: 0 1px 2px rgba(15, 18, 24, 0.14);
+  --shadow-2: 0 10px 30px rgba(15, 18, 24, 0.16);
+  --shadow-pop: 0 18px 48px rgba(15, 18, 24, 0.24);
+}
+
+/* Glow master switch (Settings → Appearance). Off = crisp edges, no halo. */
+[data-glow='off'] {
+  --glow: transparent;
+  --glow-broad: transparent;
+}
+
+/* Animations master switch (Settings → Appearance) */
+[data-animations='off'] *,
+[data-animations='off'] *::before,
+[data-animations='off'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Compact density (Settings → Appearance) */
+[data-density='compact'] {
+  --row-h: 36px;
+  --player-h: 68px;
+  --gutter: 10px;
+  --window-pad: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 1ms;
+    --dur-2: 1ms;
+    --dur-3: 1ms;
+  }
+}

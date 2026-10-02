@@ -1,0 +1,80 @@
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.state[data-compact='true'] {
+  padding: 22px 18px;
+  gap: 8px;
+  flex-direction: row;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-2);
+}
+
+.state[data-compact='true'] .icon {
+  width: 32px;
+  height: 32px;
+}
+
+.state[data-tone='error'] .icon {
+  color: #e6858d;
+  background: rgba(224, 85, 94, 0.12);
+}
+
+.title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.state[data-compact='true'] .title {
+  font-size: 12.5px;
+}
+
+.message {
+  max-width: 380px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.state[data-compact='true'] .message {
+  max-width: none;
+  font-size: 12px;
+}
+
+.action {
+  margin-top: 4px;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+.action:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.action:active {
+  transform: scale(0.98);
+}

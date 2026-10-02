@@ -1,0 +1,66 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  height: var(--header-h);
+  padding: 0 12px 0 24px;
+  border-bottom: 1px solid transparent;
+}
+
+.spacer {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.iconAction {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--text-2);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.iconAction:hover {
+  background: var(--surface-hover);
+  color: var(--text-1);
+}
+
+.detail,
+.dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.avatar {
+  display: flex;
+  border-radius: 50%;
+  padding: 1px;
+  transition: box-shadow var(--dur-1) var(--ease);
+}
+
+.avatar:hover {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.14);
+}
+
+.windowControls {
+  margin-left: 8px;
+}

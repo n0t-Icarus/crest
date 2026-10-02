@@ -1,0 +1,38 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: #101216;
+  color: var(--text-1);
+  box-shadow: var(--shadow-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1.35;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: veluneScaleIn var(--dur-2) var(--ease-out);
+}
+
+.tooltip[data-side='top'] {
+  transform: translate(-50%, -100%);
+}
+.tooltip[data-side='bottom'] {
+  transform: translate(-50%, 0);
+}
+.tooltip[data-side='left'] {
+  transform: translate(-100%, -50%);
+}
+.tooltip[data-side='right'] {
+  transform: translate(0, -50%);
+}

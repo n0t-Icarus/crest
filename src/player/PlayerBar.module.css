@@ -1,0 +1,208 @@
+.player {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px 0 var(--gutter);
+  border-color: var(--line);
+  background: var(--panel);
+}
+
+/* Left: now playing ----------------------------------------------------- */
+.left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.trackButton {
+  flex: none;
+  border-radius: var(--radius-sm);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.trackButton:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.trackButton:disabled {
+  cursor: default;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist {
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artistButton {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.artistButton:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+.bufferDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: veluneShimmer 1.2s var(--ease) infinite;
+  flex: none;
+}
+
+.trackActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.player:hover .trackActions,
+.trackActions:focus-within {
+  opacity: 1;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6858d;
+  font-size: 12px;
+}
+
+.retry {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.retry:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Centre: transport + progress ----------------------------------------- */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 460px;
+  max-width: 460px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.playButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  margin: 0 4px;
+  border-radius: 50%;
+  background: var(--btn-solid);
+  color: var(--btn-ink);
+  box-shadow: 0 0 20px var(--glow), 0 0 48px var(--glow-broad);
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.playButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--btn-solid) 72%, #ffffff);
+  transform: scale(1.04);
+}
+
+.playButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.playButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.progress {
+  width: 100%;
+}
+
+/* Right: queue, volume, settings --------------------------------------- */
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.demoChip {
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Narrow windows: drop the least important affordances ------------------- */
+@media (max-width: 1239px) {
+  .demoChip {
+    display: none;
+  }
+}
+
+@media (max-width: 999px) {
+  .trackActions {
+    display: none;
+  }
+}

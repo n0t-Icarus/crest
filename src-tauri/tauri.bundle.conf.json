@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "externalBin": ["binaries/node", "binaries/yt-dlp"],
+    "resources": {
+      "../server-dist/mediaHelper.bundle.mjs": "helper/mediaHelper.bundle.mjs"
+    }
+  }
+}
