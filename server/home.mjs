@@ -16,7 +16,7 @@
  * week')`, which is a global text search — the reason Home felt random.
  */
 
-import { curateTracks, curateCollections } from './quality.mjs'
+import { curateTracks, curateCollections, isLatinText } from './quality.mjs'
 import { getInnertube, getRegion } from './innertube.mjs'
 
 const txt = (value) => {
@@ -114,6 +114,17 @@ function isMusicShelf(shelf) {
   return !/podcast|podcasts|episode|episodes/.test(title)
 }
 
+/**
+ * A shelf whose own heading is not English.
+ *
+ * The rows inside may well be fine — the filter only guards the label above
+ * them. Those shelves are skipped rather than renamed, because inventing an
+ * English title for "भारत के मोस्ट प्ले किए गए एल्बम" would be a lie.
+ */
+function hasReadableHeading(shelf) {
+  return isLatinText(shelfTitle(shelf))
+}
+
 /* -------------------------------------------------------------------------- */
 /* Moods                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -199,6 +210,7 @@ export async function homeShelves({ mood = '', limit = 8 } = {}) {
   for (const shelf of home?.sections ?? []) {
     if (shelves.length >= limit) break
     if (!isMusicShelf(shelf)) continue
+    if (!hasReadableHeading(shelf)) continue
     const read = readShelf(shelf)
     if (!read.tracks.length && !read.playlists.length) continue
     shelves.push(read)
@@ -212,6 +224,7 @@ export async function homeShelves({ mood = '', limit = 8 } = {}) {
       for (const shelf of more?.sections ?? []) {
         if (shelves.length >= limit) break
         if (!isMusicShelf(shelf)) continue
+        if (!hasReadableHeading(shelf)) continue
         const read = readShelf(shelf)
         if (!read.tracks.length && !read.playlists.length) continue
         shelves.push(read)

@@ -6,13 +6,20 @@
     <meta name="color-scheme" content="dark" />
     <title>Crest</title>
     <style>
+      /*
+       * Pre-paint values so the window is never white while the theme loads.
+       * They read the theme tokens with a dark fallback: a hardcoded light
+       * `color` here outranks `body { color: var(--text-1) }` (an id beats a
+       * type selector), which left every inheriting heading white-on-white in
+       * the Glacier theme.
+       */
       html,
       body,
       #root {
         margin: 0;
         height: 100%;
-        background: #06070a;
-        color: #f2f3f5;
+        background: var(--canvas, #06070a);
+        color: var(--text-1, #f2f3f5);
       }
     </style>
   </head>

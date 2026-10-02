@@ -2,208 +2,271 @@
 
 **Codename: Nabito** — a lightweight Windows desktop music client.
 
-Phase 1 delivers the desktop shell and the complete UI, matched against the supplied
-reference screenshot, running on realistic mock data. No music backend is wired up
-yet, and nothing claims otherwise: feature switches that cannot work today are
-disabled and labelled, not faked.
+A frameless, dark-by-default music client for Windows 10/11, built on Tauri 2 + React 19 +
+TypeScript. It streams **full-length audio from YouTube Music** through a small local helper
+process, ships as a single ~40 MB installer, and uses the OS webview instead of bundling a
+browser.
 
 ---
 
-## 1. Stack decision
+## Contents
+
+- [Screenshots](#screenshots)
+- [What it does](#what-it-does)
+- [Install](#install)
+- [Running it from source](#running-it-from-source)
+- [Stack](#stack)
+- [Architecture](#architecture)
+- [How playback actually works](#how-playback-actually-works)
+- [Reliability notes](#reliability-notes)
+- [Design system](#design-system)
+- [Keyboard](#keyboard)
+- [Licensing & content](#licensing--content)
+
+---
+
+## Screenshots
+
+### Noir — the default
+
+<p align="center">
+  <img src="docs/screenshots/home-noir.png" alt="Home: mood chips, hero carousel and quick picks" width="820" />
+  <br /><sub>Home — mood rail, hero carousel and quick picks built from the live YouTube Music feed.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/search-noir.png" alt="Search results for daft punk" width="820" />
+  <br /><sub>Search — tracks, albums, artists and playlists. Always global, never restricted by region.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/queue-noir.png" alt="Queue panel with now playing, lyrics and up next" width="820" />
+  <br /><sub>Queue — now playing, synced lyrics and an up-next list that refills itself as it drains.</sub>
+</p>
+
+### Country-aware feed
+
+Home is localised to a country you choose in **Settings → Country**. The interface stays
+English — only the *music* changes. This is the same app with South Korea selected:
+
+<p align="center">
+  <img src="docs/screenshots/country-korea-noir.png" alt="Home feed localised to South Korea" width="820" />
+  <br /><sub>Region KR — a different market's feed, charts and picks. Chrome stays English.</sub>
+</p>
+
+### Glacier — the light theme
+
+<p align="center">
+  <img src="docs/screenshots/home-glacier.png" alt="Home in the Glacier light theme" width="820" />
+  <br /><sub>Glacier — the daylight preset. One of three themes, all built from CSS variables.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings-glacier.png" alt="Settings, Country section, with Norway selected" width="820" />
+  <br /><sub>Settings → Country — 61 markets, or Automatic. Changes the feed immediately and persists.</sub>
+</p>
+
+---
+
+## What it does
+
+| | |
+| --- | --- |
+| **Real audio** | Full-length tracks stream from YouTube Music. Not previews, not demos. |
+| **Real home feed** | Built from YouTube Music's own editorial shelves and mood chips — not a text search dressed up as a feed. |
+| **Country-aware** | Pick one of 61 countries and Home returns that market's music. The interface stays English. |
+| **Global search** | Any song, album, artist or playlist by name, regardless of region. |
+| **Radio queue** | The queue refills itself from per-track recommendations and stays wide — no three songs by one artist. |
+| **Pre-resolved audio** | The next track's stream is resolved while the current one plays, so skipping is instant. |
+| **Honest errors** | When something fails, it says what actually failed. |
+| **Auto-shutdown helper** | The local helper exits by itself ~15 s after the app closes. Nothing lingers. |
+
+---
+
+## Install
+
+Download `Crest_<version>_x64-setup.exe` from the
+[Releases page](../../releases) and run it.
+
+The installer is a standard NSIS package. It creates a `Crest` folder containing five files:
+
+```
+Crest/
+  crest.exe                        the app        (3.6 MB)
+  helper/mediaHelper.bundle.mjs    the backend   (1.6 MB)
+  node.exe                         runtime       (90 MB)
+  yt-dlp.exe                       stream resolver (17 MB)
+  uninstall.exe                    uninstaller
+```
+
+Nothing to install alongside it — no Node, no Python, no API keys. `node.exe` is bundled
+because the media helper is a real local process; it is the bulk of the install size and is a
+known trade-off of using Tauri rather than rewriting the backend in Rust.
+
+**Requirements:** Windows 10/11 x64, and an internet connection (all music comes from YouTube).
+
+---
+
+## Running it from source
+
+```bash
+npm install
+npm run dev            # browser preview at http://127.0.0.1:5273 — fast visual loop
+npm run desktop        # Tauri dev window
+npm run build          # typecheck + production frontend build
+npm run desktop:build  # NSIS installer → src-tauri/target/release/bundle/nsis/
+npm run icons          # regenerate the app icons (stdlib-only Python script)
+```
+
+The dev server starts the media helper for you. To regenerate the helper bundle after changing
+anything in `server/`, run `npm run helper:bundle`.
+
+Screenshots in this README are generated by `node tools/shots.mjs` (requires `npm run dev`
+running). It drives a headless Edge over CDP so the captures match the desktop build.
+
+---
+
+## Stack
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Shell | **Tauri 2** (Rust) | Uses the OS webview (WebView2, already present on Windows 10/11) instead of shipping a browser. Installer ~2-6 MB and idle RAM measured in tens of MB, versus ~40-50 MB / hundreds of MB for Electron. Media keys, tray, notifications, single instance and SQLite are all reachable from Rust without a Node runtime. |
-| UI | **React 19 + TypeScript** | The reference is dense, stateful UI; React's component model plus strict TypeScript keeps a 60+ component surface maintainable. No UI kit: every control is written to match the reference rather than a library's default look. |
-| Build | **Vite 8** | Fast dev server (sub-second HMR) and small, chunk-split production bundles. |
-| State | **Zustand** (~1 kB) | Store-per-domain with selectors. Playback position deliberately lives *outside* React (see §5). |
-| Audio | **`<audio>` behind an `AudioEngine` interface** | Real playback today; a native Rust pipeline (symphonia/rodio + Web Audio-style graph) drops in behind the same interface in Phase 10 for gapless, crossfade and EQ. |
-| Storage | localStorage now, **SQLite** (rusqlite, bundled) in Phase 9 | Settings and library persistence work today through one adapter; the storage layer is swapped without touching call sites. |
-
-Why not the alternatives? **Electron** cannot meet the "lightweight, low RAM, fast
-startup" goal. **Native Rust GUI (egui/iced)** would be lighter still but cannot
-reproduce the reference's typography, radii, shadows and hover choreography
-pixel-for-pixel, which is the primary requirement for this phase. **Flutter** brings a
-larger runtime and weaker Windows integration for this use case.
+| Shell | **Tauri 2** (Rust) | Uses the OS webview (WebView2, already on Windows 10/11) instead of shipping a browser. Idle RAM measured in tens of MB versus hundreds for Electron. Tray, notifications, single instance and window state are all reachable from Rust. |
+| UI | **React 19 + TypeScript** | Strict types across a 60+ component surface. No UI kit — every control is written to match the design rather than a library's default look. |
+| Build | **Vite 8** | Sub-second HMR, small chunk-split production bundles. |
+| State | **Zustand** (~1 kB) | Store-per-domain with selectors. Playback position deliberately lives *outside* React. |
+| Audio | **`<audio>` behind an `AudioEngine` interface** | Real playback now; a native Rust pipeline drops in behind the same interface later. |
+| Storage | localStorage through one adapter | Settings, library, queue and history persist today; the adapter is swappable without touching call sites. |
+| Metadata | **youtubei.js** | YouTube Music's InnerTube API, no official SDK, no API key. |
+| Audio resolution | **yt-dlp** | Resolves the direct stream URL per track. |
 
 ---
 
-## 2. Reference analysis
+## Architecture
 
-Values were sampled directly from the screenshot (crops + pixel probes), and they
-are encoded as design tokens in `src/styles/tokens.css`.
+```
+src/
+  app/            shell composition, router, appearance, error boundary
+  components/     ui/ (primitives) · layout/ (chrome) · music/ (cards, tables) · dev/
+  pages/          one folder per view; home/ holds the hero + feed
+  player/         PlayerBar, controller, player store
+  audio/          AudioEngine contract + HTML and simulated implementations
+  queue/          queue panel and rows
+  search/         search hook + page
+  services/       providers/ — MusicProvider contract and implementations
+  store/          settings, library, ui, player stores (persisted where appropriate)
+  settings/       settings primitives (rows, toggles, segmented, selects)
+  library/        track resolution cache
+  hooks/          hotkeys, debounce, async, visibility
+  windows/        the only module that talks to Tauri
+server/
+  mediaHelper.mjs local HTTP helper (the backend)
+  mediaCore.mjs   yt-dlp resolution + caching
+  ytmusic.mjs     search, albums, artists, playlists
+  home.mjs        home feed, moods, related tracks, radio
+  quality.mjs     anti-slop curation filters
+  innertube.mjs   the single shared Innertube session (+ region)
+  regions.mjs     country table
+src-tauri/        Rust shell (window state, spawning the helper)
+tools/            screenshot driver (not part of the app)
+```
 
-| Measurement | Value (reference) | Token |
+Hard rules enforced by this layout:
+
+- **UI never touches Tauri directly** — everything goes through `src/windows/tauri.ts`, which
+  no-ops in a browser so `npm run dev` gives a fast visual loop.
+- **UI never touches a backend directly** — it consumes `MusicProvider` only.
+- **Player never touches `<audio>` directly** — it drives an `AudioEngine`.
+
+### The media helper
+
+The UI cannot reach YouTube directly from a webview, so a small Node process does it. `crest.exe`
+starts it on `127.0.0.1:5267` at launch, and it serves:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `/home?mood=&region=` | Editorial feed, mood chips and quick picks for a country |
+| `/search-all?q=` | Global search across all four categories |
+| `/track`, `/album`, `/artist`, `/playlist` | Metadata |
+| `/related`, `/radio` | Per-track recommendations and the radio queue |
+| `/audio?vid=` | Range-proxy for the resolved stream |
+| `/prewarm?vid=` | Resolve a track's audio ahead of time |
+| `/health` | Heartbeat — the helper exits if this stops |
+
+It is a **local** process on your own machine. It is never hosted, and it is not on the internet.
+The webview heartbeats it every 5 s; miss the window and it shuts itself down.
+
+---
+
+## How playback actually works
+
+1. The player asks the provider for a stream.
+2. `getStream()` waits for the helper to be listening, then requests two bytes of audio to prove
+   the track resolves *before* handing a URL to the media element.
+3. On success the URL is `http://127.0.0.1:5267/audio?vid=…`, which range-proxies googlevideo so
+   seeking works and nothing touches disk.
+4. While a track plays, the next one is resolved in the background (`/prewarm`), which turns a
+   ~5 s wait into ~0.05 s.
+
+Because step 2 happens before playback is attempted, a track that cannot stream produces a real
+explanation instead of the media element's generic "no supported source".
+
+**Player clients.** YouTube bot-gates yt-dlp's default player client from many networks. Crest
+tries `web_embedded` first — which is not behind that check — and falls back through the others,
+remembering whichever worked last.
+
+---
+
+## Reliability notes
+
+Things that are honestly limited, and how the app behaves:
+
+- **YouTube rate-limits by IP.** When a network is throttled, streams return 403. Crest backs
+  off, retries with a fresh URL, and then stops trying for 30 s rather than hammering and making
+  it worse. The player says *"YouTube is rate-limiting this network"* and offers Retry — it does
+  not pretend the track is broken.
+- **Country is not a VPN.** The selected market changes which music, charts and picks come back,
+  but YouTube still sees your real IP, so chart *positions* can lean toward where you actually
+  are. The interface itself is always English — a Korean feed in Korean chrome reads as a bug,
+  not a feature.
+- **Non-English text is filtered out of the interface.** Shelf headings, playlist cards and hero
+  titles must be English, so anything in another script is skipped rather than shown. **Song
+  titles are exempt** — "Kya Mujhe Pyar Hai" is a real song and appears exactly as written.
+- **Search is never regional.** Any song can be found by name from any region setting.
+- **Personal-use pipeline.** Unofficial YouTube endpoints are subject to silent breakage and are
+  not covered by any API contract. See [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+---
+
+## Design system
+
+Values were sampled from the reference and encoded as tokens in `src/styles/tokens.css`.
+
+| Measurement | Value | Token |
 | --- | --- | --- |
 | Window frame / canvas | `#070A0E` | `--canvas` |
-| Panel interior (sidebar, content, queue) | `#04050A` (darker than the canvas) | `--panel` |
+| Panel interior | `#04050A` | `--panel` |
 | Sidebar width | 232 px | `--sidebar-w` |
 | Queue width | 292 px | `--queue-w` |
 | Top bar height | 56 px | `--header-h` |
 | Player height | 78 px | `--player-h` |
 | Panel gutters | 12-14 px | `--window-pad`, `--gutter` |
-| Search field | 34 px tall, fully rounded, `#1D2026` | `--surface-3` |
-| Active nav pill | 36 px tall, `#15181D`, r8 | `--surface-2` |
-| Recently Played cards | 140 px square art, r12, 16 px gap | `--radius-md` |
-| Made for You cards | 178 px tall, full-bleed art + scrim | — |
-| Now playing art (queue) | 68 px, r8 | — |
-| Queue rows | 40 px art, 12.5 px title / 11 px artist | — |
-| Player art | 48 px, r8 | — |
-| Play button | 38-40 px light circle (light-on-dark) | — |
+| Active nav pill | 36 px, `#15181D`, r8 | `--surface-2` |
+| Radii / borders | r8-r12, hairline `#14161C` | — |
 
-Typography: **Manrope** for display (hero, section titles, collection titles),
-**Inter** for UI and body. Both self-hosted, latin-subset only, variable weight —
-**73 kB total**, no webfont CDN, works offline. Licences ship in `public/fonts`.
+Typography: **Manrope** for display, **Inter** for UI and body. Both self-hosted, latin subset
+only, variable weight — **73 kB total**, no webfont CDN, works offline.
 
-Colour language: near-black everywhere, one accent used sparingly (focus rings,
-now-playing, active states), no neon, no big gradients, hairline borders
-(`#14161C`), soft shadows only on floating surfaces (tooltips, menus, modals).
+**Themes** — Noir (black, default), Midnight (deep blue) and Glacier (daylight white), all built
+from the same CSS variables. Settings → Appearance also has a custom-token editor for your own
+palette.
+
+**Performance** — no polling: playback position is written to the DOM from a frame loop that only
+exists while audio is playing. Long lists are virtualised, artwork loads lazily behind a gradient
+placeholder, and rows use `content-visibility: auto`.
 
 ---
 
-## 3. Architecture
-
-```
-src/
-  app/            shell composition, router, appearance, error boundary
-  components/     ui/ (primitives) · layout/ (chrome) · music/ (cards, song table) · brand/ · dev/
-  pages/          one folder per view; home/ holds the hero + feed
-  player/         PlayerBar, progress channel, controller, player store, song actions
-  audio/          AudioEngine contract + HTML and simulated implementations
-  queue/          queue panel and rows (drag reorder, remove)
-  lyrics/         lyrics hooks, preview and full view
-  search/         search hook + overlay
-  services/       providers/ — MusicProvider contract and the mock implementation
-  store/          settings, library, ui stores (persisted where appropriate)
-  settings/       settings primitives (rows, toggles, segmented, selects)
-  playlists/      playlist actions + dialogs
-  library/        track resolution cache
-  hooks/          hotkeys, media query, visibility, debounce, async
-  utils/          formatting, class names, procedural artwork
-  windows/        the only module that talks to Tauri
-src-tauri/        Rust shell (window state, capabilities, icons)
-```
-
-Hard rules enforced by this layout:
-
-- **UI never touches Tauri directly** — everything goes through `src/windows/tauri.ts`,
-  which no-ops in a browser so `npm run dev` gives a fast visual loop.
-- **UI never touches a backend directly** — it consumes `MusicProvider` only.
-- **Player never touches `<audio>` directly** — it drives an `AudioEngine`.
-- No single-file components: the largest module is well under 400 lines.
-
-### Data provider abstraction
-
-```ts
-interface MusicProvider {
-  id: string
-  displayName: string
-  capabilities: { streaming: boolean; lyrics: 'none' | 'plain' | 'synced'; search: boolean; recommendations: boolean }
-  getHome(): Promise<HomeFeed>
-  search(query): Promise<SearchResults>
-  getTrack / getTracks / getAlbum / getArtist / getArtistTracks / getPlaylist / getMix
-  getLyrics(trackId): Promise<Lyrics | null>
-  getRecommendations(seedId, limit): Promise<Track[]>
-  getStream(trackId): Promise<AudioStream>
-}
-```
-
-Three backends ship today, all over the same interface:
-
-- `MockProvider` (`services/providers/mock/`) — the bundled demo catalogue, metadata
-  only. It reports `streaming: false` and returns `{ kind: 'unavailable' }` from
-  `getStream()`, so the UI honestly shows a "Demo audio" chip.
-- `SynthProvider` (`services/providers/synth/`) — same catalogue, but `getStream()`
-  renders a deterministic waveform per track **on this machine** (`synthEngine.ts`:
-  wavetable pads, bass, arpeggio and drums mixed into a 16-bit WAV, hashed from the
-  track id) and hands back a `blob:` URL. No bundled audio, no network, no licensed
-  recordings — yet playback, seek, volume and auto-advance all run the real
-  `HtmlAudioEngine` path.
-- `YtProvider` (`services/providers/yt/`) — **YouTube Music, full-length**. Metadata
-  comes from YouTube Music's InnerTube API via `youtubei.js` inside a tiny local
-  helper (`server/mediaHelper.mjs`); audio URLs are resolved on demand by short-lived
-  `yt-dlp --get-url --format bestaudio` child processes and the helper range-proxies
-  the stream into the player — nothing is ever written to disk. The helper lives and
-  dies with the app: the webview heartbeats it, and it exits after 15 s without a
-  beat (or on `/shutdown`/SIGINT). Personal-use pipeline — see
-  docs/PROVIDERS.md §7 for the terms and reliability discussion.
-
-The active source is switchable in Settings → Advanced → Music Source and persists.
-
-### Audio architecture
-
-`AudioEngine` has two implementations today:
-
-- `HtmlAudioEngine` — real playback through the webview's media element. Position is
-  reported from a `requestAnimationFrame` loop that runs **only while playing**.
-- `SimulatedEngine` — a clock-only transport used when the provider has no audio. It
-  reports `simulated: true`, which the player surfaces as a "Demo audio" chip.
-
-`PlaybackController` owns the current engine, forwards engine events through an
-ownership guard (a superseded engine can never move the playhead or flip transport
-state), and tracks every engine it creates so replacements are always disposed.
-
-Capability reporting (`audio/audioFeatures.ts`) drives the Settings page, so
-crossfade/gapless/normalise/skip-silence/equalizer are shown as **Planned** with the
-phase that delivers them instead of being decorative switches.
-
----
-
-## 4. What works today
-
-| Area | Status |
-| --- | --- |
-| Frameless window, custom title bar, window state persistence | ✅ |
-| Three-panel layout, independent scrolling, responsive collapse | ✅ |
-| Sidebar: nav, playlists, account row, hover/selected states | ✅ |
-| Home: hero carousel, Recently Played, Made for You, Trending Now | ✅ |
-| Player: play/pause, next/previous, seek, shuffle, repeat, queue, autoplay | ✅ |
-| Queue: Now Playing / Up Next, drag reorder (and Alt+↑/↓), remove, clear | ✅ |
-| Lyrics: plain + synced, active-line highlight, auto-scroll, preview + full view | ✅ |
-| Search: instant overlay, tabs, ranked results | ✅ |
-| Library, playlists (create/rename/delete/add/remove/reorder), liked, history | ✅ |
-| Settings: appearance, playback, audio, library, privacy, keyboard, advanced, about | ✅ (persisted) |
-| Keyboard shortcuts (§7) | ✅ |
-| Compact player | ✅ |
-| Artwork: procedural, lazy, no third-party images | ✅ |
-| Real audio playback (procedural "Synth demo" source) | ✅ |
-| Local files / real streaming backends | Phase 5+ |
-| Gapless / crossfade / EQ / normalisation / pitch | Phase 10 |
-| Tray, media keys via SMTC, toast notifications, start-with-Windows | Phase 8 |
-| Discord Rich Presence | Phase 8 |
-| SQLite cache + offline downloads | Phase 9 |
-| `.exe` packaging (NSIS) | Phase 11 |
-
----
-
-## 5. Performance strategy
-
-- **No polling.** Playback position is written to the DOM from a frame loop that only
-  exists while audio is playing; verified at **0 animation frames per second when
-  idle**. Lyrics, progress bars and the debug overlay all use the same direct-DOM
-  approach and never re-render React per frame.
-- **Referentially stable selectors.** Store selectors return primitives or memoised
-  values; slices are computed with `useMemo` so `useSyncExternalStore` never loops.
-- **Windowing.** `SongTable` virtualises lists over 30 rows against the page scroller
-  (`@tanstack/react-virtual`).
-- **Cheap cards.** Artwork is CSS gradient layers — no image decode, no network — and
-  remote images (Phase 5) mount lazily via `IntersectionObserver` with a gradient
-  placeholder underneath so nothing shifts.
-- **Containment.** Rows use `content-visibility: auto` with intrinsic sizing.
-- **Opt-in diagnostics.** Settings → Advanced enables a debug overlay reporting FPS,
-  worst frame, dropped frames, heap and node count.
-- **Startup.** The window is created hidden and revealed after the first frame; the
-  Tauri API is dynamically imported only when window controls are used, keeping it
-  out of the initial bundle (see the separate `window` chunk in the build output).
-
-## 6. Data & persistence
-
-Settings, likes, playlists, play history and the queue are persisted through one
-adapter (`zustand/persist`) and restored — including window geometry and maximised
-state from Rust — so nothing resets between restarts. Phase 9 replaces the adapter
-with the SQLite schema for library metadata, cached artwork and download records.
-
-## 7. Keyboard
+## Keyboard
 
 | Shortcut | Action |
 | --- | --- |
@@ -215,52 +278,17 @@ with the SQLite schema for library metadata, cached artwork and download records
 | `Esc` | Close menu / overlay / dialog |
 | `Alt+↑` / `Alt+↓` | Reorder the focused queue row |
 
-Rebinding and system-wide hotkeys arrive with the global-shortcut plugin (Phase 8).
+Letter and arrow shortcuts stand down while you are typing in a field.
 
-## 8. Running it
+---
 
-```bash
-npm install
-npm run dev          # browser preview at http://127.0.0.1:5273 (fast visual loop)
-npm run desktop      # Tauri dev window
-npm run build        # typecheck + production frontend build
-npm run desktop:build  # NSIS installer (.exe) — Phase 11
-npm run icons        # regenerate the app icons (stdlib-only Python script)
-```
-
-## 9. Licensing & content notes
+## Licensing & content
 
 - **Fonts**: Inter and Manrope, SIL Open Font License 1.1 (`public/fonts/LICENSE-*`).
-- **Artwork**: generated procedurally from each item's id (`utils/artwork.ts`). No
-  third-party images are bundled; remote artwork is supported and cached later.
-- **Lyrics**: the bundled lyric text is original placeholder copy written for
-  development. No licensed lyric text ships with Crest.
 - **Icons**: hand-drawn inline SVG (`components/ui/Icon.tsx`) — no icon package.
+- **Artwork** comes from YouTube and belongs to whoever made it.
+- **Lyrics** come from LRCLIB.
+- **Music** streams from YouTube. Crest ships no audio, downloads nothing to disk, and is
+  intended for personal use. It is not affiliated with or endorsed by YouTube.
 
-### On music backends
-
-No backend is wired up in this phase. When one is added, the honest options are:
-
-1. **Local library provider** — user's own files. Zero legal exposure, fully offline.
-2. **Official catalogue APIs** — metadata and (where licensed) streams under the
-   provider's terms; API keys stay out of the client and are never hard-coded.
-3. **Unofficial YouTube Music endpoints** — technically possible, but they violate
-   YouTube's Terms of Service, are subject to silent breakage, and would ship a
-   legally risky client. They stay out of the default build; if wanted, they belong
-   behind `services/providers/<name>/` as an explicit, opt-in module so the rest of
-   the app is unaffected and the decision is visible.
-
-## 10. Roadmap
-
-| Phase | Scope |
-| --- | --- |
-| 1 ✅ | Desktop shell + reference-accurate UI on mock data |
-| 2/3 ✅ | Navigation, responsive behaviour, all views |
-| 4 ✅ | Player architecture (queue, shuffle, repeat, seek, autoplay, history) |
-| 5 | Real `MusicProvider` (local library first) + real playback |
-| 6 | Library/playlists on SQLite |
-| 7 | Lyrics providers + caching |
-| 8 | Windows integration: tray, SMTC media keys, toasts, start-with-Windows, Discord RPC, global shortcuts |
-| 9 | Cache/offline layer, download manager, cache limits |
-| 10 | Native audio pipeline: gapless, crossfade, normalisation, silence skipping, EQ, pitch |
-| 11 | Packaging: NSIS `.exe`, code signing notes, auto-update |
+See [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full provider and terms discussion.

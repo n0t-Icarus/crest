@@ -33,6 +33,7 @@ export function Button({
   return (
     <button
       type={type}
+      data-variant={variant}
       className={cn(styles.button, styles[variant], styles[size], pill && styles.pill, className)}
       {...rest}
     >

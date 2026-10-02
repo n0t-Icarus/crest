@@ -33,6 +33,23 @@ const VIDEO_NOISE =
   /\s\|\s|\b(?:1080p|720p|4k|uhd|legend(?:a|e|ad[oa])s?|subtitulad[oa]|bootleg)\b|\bep\.\s?\d{1,3}\b|\b(?:hd|live)\b[^|]{0,40}\b(?:concert|live|show)\b/i
 
 /** Hard-reject: channel names that are content farms posing as artists. */
+/**
+ * Scripts that are not allowed to become interface text.
+ *
+ * Crest's own chrome is English, so a shelf heading or a playlist card has no
+ * business arriving in Hindi, Korean or Cyrillic — it reads as a bug, not as
+ * localisation. Track titles are deliberately exempt: "Kya Mujhe Pyar Hai" is
+ * a real song with a real name, and showing it exactly as it is written is
+ * correct. The line is drawn at song titles, not at the interface around them.
+ */
+const NON_LATIN =
+  /[\u0370-\u03FF\u0400-\u04FF\u0530-\u058F\u0600-\u06FF\u0750-\u077F\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0E00-\u0E7F\u1000-\u109F\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF]/
+
+/** True when the text is safe to show as a heading, card title or shelf name. */
+export function isLatinText(value) {
+  return !NON_LATIN.test(String(value ?? ''))
+}
+
 const SPAM_CHANNEL =
   /\b(adv\s?creations|pulse\s?planet|facts\s?factory|magazine\s?gold|viral\s?(hub|media|world)|music\s?(hub|world|factory)|playlist\s?(factory|hub)|status\s?(zone|world)|hits\s?factory)\b/i
 
@@ -297,6 +314,9 @@ export function curateCollections(items, limit = 20) {
     const title = String(item.title ?? '')
     if (!title) continue
     if (SPAM_TITLE.test(title)) continue
+    // Collections become shelf headings and cards, so they have to read as
+    // English; this is what kept Hindi playlist titles out of the hero.
+    if (!isLatinText(title)) continue
     if (SPAM_CHANNEL.test(String(item.owner ?? ''))) continue
     const key = `${slug(baseTitle(title))}::${slug(item.owner)}`
     if (seen.has(key)) continue

@@ -85,13 +85,21 @@ export const REGIONS = Object.freeze([
 
 const BY_CODE = new Map(REGIONS.map((region) => [region.code, region]))
 
-/** Normalise whatever the client sent into `{ gl, hl, name }`, or null for auto. */
+/**
+ * Normalise whatever the client sent into `{ gl, hl, name }`, or null for auto.
+ *
+ * `hl` is deliberately pinned to English for every market. The country still
+ * decides which music and which charts come back, but Crest's own headings —
+ * mood chips, shelf titles, settings — stay in one language. Letting `hl`
+ * follow the country produced a Korean interface for a Korean feed, which
+ * nobody asked for and which reads as a bug rather than a feature.
+ */
 export function resolveRegion(code) {
   const clean = String(code ?? '').trim().toUpperCase()
   if (!clean) return null
   const found = BY_CODE.get(clean)
   if (!found) return null
-  return { gl: found.code, hl: found.hl, name: found.name }
+  return { gl: found.code, hl: 'en', name: found.name }
 }
 
 /** The list for the Settings picker. */

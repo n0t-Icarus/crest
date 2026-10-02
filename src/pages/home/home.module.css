@@ -15,28 +15,41 @@
   isolation: isolate;
 }
 
+/*
+ * The backdrop, not the artwork.
+ *
+ * Thumbnails are square and the banner is wide, so showing one sharp reads as
+ * blocks. Blurring and overscaling turns the same image into a smooth colour
+ * wash that still carries the slide's mood, and the vignette below keeps the
+ * headline legible on top of any artwork at all.
+ */
 .heroArt {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  object-fit: cover;
+  filter: blur(24px) saturate(1.35) brightness(1.02);
+  transform: scale(1.06);
 }
 
+/*
+ * Dark on the left for the headline, clear on the right so the slide's
+ * artwork still reads. A flat wash over the whole banner looks like a
+ * placeholder; this keeps the picture while keeping the text legible.
+ */
 .heroScrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(4, 5, 9, 0.9) 0%, rgba(4, 5, 9, 0.5) 44%, rgba(4, 5, 9, 0.06) 100%),
-    linear-gradient(180deg, rgba(4, 5, 9, 0.06) 40%, rgba(4, 5, 9, 0.5) 100%);
+  background: linear-gradient(90deg, rgba(4, 5, 9, 0.93) 0%, rgba(4, 5, 9, 0.66) 30%, rgba(4, 5, 9, 0.12) 68%, rgba(4, 5, 9, 0.04) 100%);
   pointer-events: none;
 }
 
-.heroSkyline {
+/* Softens the top and bottom edges so the banner sits into the page. */
+.heroVignette {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 116px;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 5, 9, 0.5) 0%, rgba(4, 5, 9, 0) 28%, rgba(4, 5, 9, 0) 68%, rgba(4, 5, 9, 0.62) 100%);
   pointer-events: none;
 }
 
@@ -77,6 +90,27 @@
   align-items: center;
   gap: 10px;
   margin-top: 14px;
+}
+
+/*
+ * The hero is a dark surface in every theme, so its own controls must not
+ * borrow theme ink. In Glacier the secondary button took its near-black
+ * label from the light theme and "Explore" disappeared against the artwork.
+ * Pinning them to light ink makes them legible over any image.
+ */
+.heroActions button[data-variant='secondary'],
+.heroActions button[data-variant='ghost'],
+.heroActions button[data-variant='outline'] {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.heroActions button[data-variant='secondary']:hover:not(:disabled),
+.heroActions button[data-variant='ghost']:hover:not(:disabled),
+.heroActions button[data-variant='outline']:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .heroNav {
