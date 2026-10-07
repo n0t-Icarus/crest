@@ -2,8 +2,14 @@ import { Emitter } from './emitter'
 import type { AudioCapabilities, AudioEngine, AudioEngineEvents, AudioLoadInput } from './types'
 
 const POSITION_EPSILON_MS = 40
-/** Metadata must arrive within this window or the load is declared failed. */
-const LOAD_TIMEOUT_MS = 15_000
+/**
+ * Metadata must arrive within this window or the load is declared failed.
+ *
+ * Generous, because the first bytes of a stream only flow once yt-dlp has
+ * resolved the googlevideo URL (up to `YT_DLP_TIMEOUT_MS` = 30s server-side).
+ * A tighter window failed tracks that were about to play fine.
+ */
+const LOAD_TIMEOUT_MS = 30_000
 
 /**
  * Real playback through the webview's media element.
@@ -15,6 +21,10 @@ const LOAD_TIMEOUT_MS = 15_000
 export class HtmlAudioEngine implements AudioEngine {
   readonly kind = 'html' as const
   readonly simulated = false
+
+  get hasSource(): boolean {
+    return this.element.getAttribute('src') !== null
+  }
 
   readonly capabilities: AudioCapabilities = {
     seek: true,
@@ -90,6 +100,27 @@ export class HtmlAudioEngine implements AudioEngine {
 
   pause(): void {
     this.element.pause()
+  }
+
+  /**
+   * Tear the resource down rather than pausing it.
+   *
+   * `pause()` alone is not enough when switching tracks: the element keeps its
+   * buffer and any in-flight request, so a track that was mid-play can keep
+   * sounding (and reappear) after the listener has moved on. Detaching the src
+   * and re-running the resource selection algorithm makes the media element
+   * drop the old stream completely.
+   */
+  stop(): void {
+    this.stopFrameLoop()
+    this.element.pause()
+    // With no `src` and no <source> children, `load()` aborts any pending
+    // fetch and resets to NETWORK_EMPTY without firing `error` — unlike
+    // assigning `src = ''`, which resolves to the document URL and 404s.
+    this.element.removeAttribute('src')
+    this.element.load()
+    this.lastPosition = 0
+    this.emitter.emit('position', 0)
   }
 
   seek(positionMs: number): void {

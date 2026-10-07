@@ -29,3 +29,8 @@ npm-debug.log*
 # Debug leftovers: minified YouTube player scripts captured while working on
 # the media pipeline. ~2.6 MB each, not referenced by any source file.
 *-player-script.js
+
+# Built stub used by tools/verify-pipeline.mjs (see tools/msvc.bat to rebuild)
+tools/yt-dlp-stub.exe
+tools/yt-dlp-stub.obj
+tools/.verify/

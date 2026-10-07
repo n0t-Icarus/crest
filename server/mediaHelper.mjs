@@ -64,6 +64,79 @@ const THROTTLE_COOLDOWN_MS = 30_000
 let throttleUntil = 0
 const DEBUG = process.env.MEDIA_HELPER_DEBUG === '1'
 
+/**
+ * Longest we will make a *client* wait inside a request because of a cooldown.
+ *
+ * Longer than this and we answer straight away with `rate_limited` instead.
+ * The client probes with its own timeout, so sitting on a request for the full
+ * cooldown just guaranteed a timeout on the player's side — reported as "lost
+ * contact with the local media helper", which blamed the wrong thing entirely
+ * and did it after half a minute of frozen UI.
+ */
+const COOLDOWN_MAX_WAIT_MS = 1_500
+
+function cooldownRemainingMs() {
+  return Math.max(0, throttleUntil - Date.now())
+}
+
+/* -------------------------------------------------------------------------- */
+/* Prewarm queue                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Speculative work is what earns the block.
+ *
+ * Prewarming used to spawn a yt-dlp child the moment the playhead moved, two
+ * tracks deep. Every skip therefore fired three extractions at once — the
+ * track being played plus two speculators — and holding Next turned that into a
+ * wall of simultaneous children. YouTube answers that with an IP throttle, and
+ * then the tracks the listener actually wanted all fail too.
+ *
+ * So prewarm is a queue drained by one worker at a fixed cadence. That keeps
+ * the speculative cost roughly constant no matter how fast someone skips, and
+ * when the playhead outruns the queue the speculative work is simply dropped —
+ * which is right, because a track two ahead of a fast-moving playhead is stale
+ * before it finishes anyway.
+ */
+const PREWARM_QUEUE_MAX = 3
+/** Gap between speculative extractions. Far below anything that looks like a bot. */
+const PREWARM_GAP_MS = 1_200
+const prewarmQueue = []
+let prewarmDraining = false
+
+function enqueuePrewarm(videoId) {
+  if (prewarmQueue.includes(videoId)) return
+  // Drop the oldest rather than growing: the newest speculative target is the
+  // one closest to the playhead, so it is the one most likely to be wanted.
+  if (prewarmQueue.length >= PREWARM_QUEUE_MAX) prewarmQueue.shift()
+  prewarmQueue.push(videoId)
+  void drainPrewarmQueue()
+}
+
+async function drainPrewarmQueue() {
+  if (prewarmDraining) return
+  prewarmDraining = true
+  try {
+    while (prewarmQueue.length > 0) {
+      // A throttle makes speculative work actively harmful, so drop the lot
+      // rather than queue work we know will be refused.
+      if (cooldownRemainingMs() > COOLDOWN_MAX_WAIT_MS) {
+        prewarmQueue.length = 0
+        break
+      }
+      const vid = prewarmQueue.shift()
+      try {
+        await resolveAudio(vid)
+      } catch {
+        // A failed prewarm is not an error; the real load will report it.
+      }
+      if (prewarmQueue.length > 0) await sleep(PREWARM_GAP_MS)
+    }
+  } finally {
+    prewarmDraining = false
+  }
+}
+
 /** Abort-aware sleep, so a client hanging up does not keep us waiting. */
 function sleep(ms, signal) {
   return new Promise((resolve) => {
@@ -147,13 +220,21 @@ function audioMime(type) {
  */
 async function fetchUpstream(vid, range, signal) {
   let lastStatus = null
+  // Was the cooldown already running when this request arrived? That decides
+  // whether a 403 below means "back off and tell the caller" or "this is my own
+  // refusal, resolve a fresh URL and try again". Without this split the first
+  // 403 set a 30s cooldown and then immediately bailed out of its own retry
+  // loop, so UPSTREAM_ATTEMPTS was never reached for the one failure that
+  // matters.
+  const enteredThrottled = cooldownRemainingMs() > COOLDOWN_MAX_WAIT_MS
   // 403 from googlevideo is usually a short-lived throttle, not a dead track:
   // burst a few tracks and the next request gets refused for a bit. Resolve a
   // fresh URL and back off rather than surfacing a failure the retry would fix.
   for (let attempt = 0; attempt < UPSTREAM_ATTEMPTS; attempt += 1) {
-    // Respect a cooldown left behind by an earlier refusal.
-    const cooling = throttleUntil - Date.now()
-    if (cooling > 0 && !signal.aborted) await sleep(Math.min(cooling, THROTTLE_COOLDOWN_MS), signal)
+    // Respect a cooldown left behind by an earlier refusal, but only briefly —
+    // see COOLDOWN_MAX_WAIT_MS.
+    const cooling = cooldownRemainingMs()
+    if (cooling > 0 && !signal.aborted) await sleep(Math.min(cooling, COOLDOWN_MAX_WAIT_MS), signal)
     const media = await resolveAudio(vid, { fresh: attempt > 0 })
     // One gate per attempt: the client aborting tears the upstream down (headers
     // phase *and* body), while the timeout below only guards the headers phase —
@@ -180,6 +261,16 @@ async function fetchUpstream(vid, range, signal) {
     console.warn(`[media-helper] /audio ${vid} upstream ${response.status} (attempt ${attempt + 1})`)
     lastStatus = response.status
     if (response.status === 403) throttleUntil = Date.now() + THROTTLE_COOLDOWN_MS
+    // Only bail early when we were already throttled on arrival. A cooldown we
+    // just set ourselves must not cancel our own retries: the whole point of
+    // this loop is to re-resolve a fresh URL after a refusal.
+    if (enteredThrottled && cooldownRemainingMs() > COOLDOWN_MAX_WAIT_MS) {
+      // Nothing this request does can succeed yet. Say so now rather than after
+      // a long, silent wait that the player would time out on.
+      const error = new Error('upstream throttled')
+      error.reason = 'rate_limited'
+      throw error
+    }
     // 404/410 mean the track itself is gone; retrying only wastes seconds.
     if ([404, 410].includes(response.status)) break
     if (attempt < UPSTREAM_ATTEMPTS - 1 && !signal.aborted) {
@@ -355,10 +446,15 @@ const server = http.createServer(async (req, res) => {
         return
       }
       case '/prewarm': {
-        // Fire-and-forget: resolve the next track's URL so its /audio starts instantly.
+        // Fire-and-forget: resolve the next track's URL so its /audio starts
+        // instantly. Queued rather than spawned — see drainPrewarmQueue.
         lastHeartbeat = Date.now()
         const vid = (url.searchParams.get('vid') ?? '').trim()
-        if (/^[A-Za-z0-9_-]{6,20}$/.test(vid)) resolveAudio(vid).catch(() => undefined)
+        // Nothing to gain from spawning a yt-dlp child we already know will be
+        // refused — it just burns CPU while the network recovers.
+        if (cooldownRemainingMs() <= COOLDOWN_MAX_WAIT_MS && /^[A-Za-z0-9_-]{6,20}$/.test(vid)) {
+          enqueuePrewarm(vid)
+        }
         send(res, 202, { ok: true })
         return
       }
@@ -367,6 +463,16 @@ const server = http.createServer(async (req, res) => {
         const vid = (url.searchParams.get('vid') ?? '').trim()
         if (!/^[A-Za-z0-9_-]{6,20}$/.test(vid)) {
           send(res, 400, { error: 'bad vid' })
+          return
+        }
+        // While cooling down from an upstream 403, refuse immediately with a
+        // reason the player can show. Waiting it out inside the request only
+        // made the player time out and report a lost helper.
+        const cooling = cooldownRemainingMs()
+        if (cooling > COOLDOWN_MAX_WAIT_MS) {
+          send(res, 429, { error: 'rate limited', reason: 'rate_limited' }, {
+            'Retry-After': String(Math.ceil(cooling / 1000)),
+          })
           return
         }
         await proxyAudio(req, res, vid)

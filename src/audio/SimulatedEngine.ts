@@ -14,6 +14,11 @@ export class SimulatedEngine implements AudioEngine {
   readonly kind = 'simulated' as const
   readonly simulated = true
 
+  /** A clock transport is always usable; it never waits on a network resource. */
+  get hasSource(): boolean {
+    return true
+  }
+
   readonly capabilities: AudioCapabilities = {
     seek: true,
     playbackRate: true,
@@ -63,6 +68,14 @@ export class SimulatedEngine implements AudioEngine {
     if (this.disposed) return
     this.stopFrameLoop()
     this.emitter.emit('playing', false)
+  }
+
+  stop(): void {
+    if (this.disposed) return
+    this.stopFrameLoop()
+    this.positionMs = 0
+    this.emitter.emit('playing', false)
+    this.emitter.emit('position', 0)
   }
 
   seek(positionMs: number): void {

@@ -8,8 +8,11 @@
 //! phases and will live in their own modules so this file stays a composition
 //! root rather than a place where features accumulate.
 
+use std::io::{Read, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{Manager, RunEvent};
@@ -40,6 +43,56 @@ fn app_info() -> AppInfo {
 
 /// The bundled media helper process, when this build owns one.
 struct MediaHelper(Mutex<Option<Child>>);
+
+/// One minimal `GET /health` against the local helper.
+///
+/// Hand-rolled over `TcpStream` on purpose: this is a loopback liveness ping
+/// to our own child process, and it must not drag an HTTP client dependency
+/// (and its TLS stack) into a shell whose whole job is to stay small.
+fn ping_helper(port: u16) -> bool {
+    let target = format!("127.0.0.1:{port}");
+    let addr = match target.to_socket_addrs() {
+        Ok(mut iter) => match iter.next() {
+            Some(addr) => addr,
+            None => return false,
+        },
+        Err(_) => return false,
+    };
+    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(1_500)) {
+        Ok(stream) => stream,
+        Err(_) => return false,
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(1_500)));
+    let request = "GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+    // Reading one byte is enough to prove something answered; the helper's body
+    // is irrelevant to liveness.
+    let mut buf = [0u8; 1];
+    matches!(stream.read(&mut buf), Ok(n) if n > 0)
+}
+
+/// Keep the helper alive for as long as this process is running.
+///
+/// The helper exits after a window without a `/health` beat, and until now the
+/// only thing beating for it was the webview. Webview timers are throttled hard
+/// whenever the window is minimised, occluded or backgrounded, so a perfectly
+/// healthy app could lose its media helper mid-session and every later track
+/// failed with "lost contact with the local media helper" until the app was
+/// restarted.
+///
+/// The shell owns the helper's lifetime, so the shell is what should vouch for
+/// it. This thread lives as long as the process and is not throttled by the
+/// window manager; `RunEvent::Exit` still kills the child explicitly.
+fn spawn_helper_heartbeat(port: u16) {
+    std::thread::spawn(move || loop {
+        // Beat faster than the helper's TTL so a single dropped packet is never
+        // enough to kill it.
+        std::thread::sleep(Duration::from_secs(5));
+        let _ = ping_helper(port);
+    });
+}
 
 /// Starts the bundled helper: `node.exe mediaHelper.bundle.mjs`, with
 /// `YTDLP_PATH` pointing at the bundled `yt-dlp.exe`.
@@ -179,6 +232,12 @@ pub fn run() {
                 }
             }
 
+            // Vouch for the helper from the shell, not only from the webview.
+            // Must run in every build: in dev the Vite plugin owns the helper,
+            // but the webview's throttled timers are just as capable of letting
+            // it expire there.
+            spawn_helper_heartbeat(5267);
+
             // The window starts hidden (see tauri.conf.json) so the user never
             // sees an empty frame before React paints. The frontend reveals it
             // as soon as the first frame is up; this fallback guarantees the
@@ -198,7 +257,8 @@ pub fn run() {
 
     app.run(|handle, event| {
         // Take the helper down with the app. (The helper also exits on its own
-        // ~15 s after the webview stops heartbeating, which covers a crash.)
+        // after its heartbeat window closes, which covers a shell crash that
+        // never reaches this branch.)
         if let RunEvent::Exit = event {
             if let Some(state) = handle.try_state::<MediaHelper>() {
                 if let Ok(mut slot) = state.0.lock() {

@@ -59,10 +59,29 @@ export class PlaybackController {
   async load(track: Track, options: { autoplay?: boolean } = {}): Promise<void> {
     const { autoplay = true } = options
     const loadId = (this.loadSeq += 1)
-    const stream = await this.resolveStream(track)
+    // Silence the current track *before* resolving the next one.
+    //
+    // Resolving a stream costs a yt-dlp round trip (1–3s). Until it lands the
+    // media element still holds the previous track, so pressing play on another
+    // song left the old one playing at full volume while the UI already showed
+    // the new title — "I skipped but the first song is still going". Unloading
+    // first is what makes a skip actually stop the music.
+    this.stopCurrent()
+    this.sink.onBuffering(true)
+
+    let stream
+    try {
+      stream = await this.resolveStream(track)
+    } catch (error) {
+      if (loadId !== this.loadSeq) return
+      this.sink.onBuffering(false)
+      this.sink.onError(messageFor(error))
+      return
+    }
     // A newer load took over while we were resolving — stay silent.
     if (loadId !== this.loadSeq) return
     if (stream.kind === 'unavailable') {
+      this.sink.onBuffering(false)
       this.sink.onError(stream.reason || 'This track is currently unavailable.')
       return
     }
@@ -93,17 +112,39 @@ export class PlaybackController {
       if (loadId !== this.loadSeq) return
       this.sink.onDuration(engine.getDurationMs() || track.durationMs)
       if (autoplay) await engine.play()
+      if (loadId !== this.loadSeq) return
+      // The engine only clears `buffering` on a `waiting`/`playing` pair, and a
+      // stream that starts cleanly never fires `waiting`. Clear it here too or
+      // the spinner sticks on a track that is audibly playing.
+      this.sink.onBuffering(false)
     } catch (error) {
       // The abort of a superseded load lands here — a newer track owns the UI now.
       if (loadId !== this.loadSeq) return
+      this.sink.onBuffering(false)
       this.sink.onError(messageFor(error))
     }
   }
 
+  /**
+   * Unload the live engine without destroying it.
+   *
+   * The engine is kept so the next track reuses the same media element (and its
+   * volume/rate state) instead of building a new one per skip.
+   */
+  private stopCurrent(): void {
+    this.engine?.stop()
+  }
+
   async play(): Promise<void> {
-    if (!this.engine) return
+    const engine = this.engine
+    // Nothing loaded (fresh launch, restored queue, or the last load failed).
+    // Report it as "no media" rather than letting `play()` reject with the
+    // media element's own "no supported source was found", which read as a
+    // broken track. The store falls back to loading the current track.
+    if (!engine || !engine.hasSource) return
     try {
-      await this.engine.play()
+      await engine.play()
+      this.sink.onBuffering(false)
     } catch (error) {
       this.sink.onError(messageFor(error))
     }
@@ -178,6 +219,17 @@ export class PlaybackController {
 }
 
 function messageFor(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message
-  return 'Unable to load this track.'
+  if (!(error instanceof Error)) return 'Unable to load this track.'
+  // The media element's generic failures are the least useful thing we can show:
+  // they say nothing about whether the track, the network, or the app is at
+  // fault. Map them to something the listener can act on.
+  const message = error.message || ''
+  if (/no supported source|not supported|Empty src|Empty source/i.test(message)) {
+    return 'This track could not be played here. Try Retry.'
+  }
+  if (/took too long/i.test(message)) {
+    return 'This track took too long to load. Try Retry.'
+  }
+  if (/aborted/i.test(message)) return 'Playback was interrupted.'
+  return message
 }

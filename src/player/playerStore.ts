@@ -139,19 +139,58 @@ function startTrack(track: Track): void {
 }
 
 /**
- * Resolve the *next* track while this one plays.
+ * Resolve the tracks just ahead of the playhead while this one plays.
  *
  * Stream resolution costs a yt-dlp round trip. Paying it at play time leaves a
  * dead gap on every skip; paying it here means the next track is ready before
  * the listener asks for it.
+ *
+ * Two deep, not one: the single-next version only ever covered the "track ends
+ * and rolls on" case. Someone pressing Next, or pressing Previous and then
+ * Next again, lands on a track nobody had resolved and pays the full wait.
+ *
+ * This runs off an index subscription rather than being sprinkled into each
+ * action, so every route into a new track is covered — including the ones that
+ * move the playhead by rewriting the queue underneath it.
  */
-function prewarmNext(): void {
+const PREWARM_DEPTH = 2
+let prewarmInFlight = 0
+
+function prewarmUpcoming(): void {
   const provider = getProvider()
   if (!provider.prewarm) return
   const { queue, index } = usePlayerStore.getState()
-  const next = queue[index + 1]
-  if (!next) return
-  void provider.prewarm(next.id)
+  for (let offset = 1; offset <= PREWARM_DEPTH; offset += 1) {
+    const ahead = queue[index + offset]
+    if (!ahead) break
+    // Cap the fan-out: holding down Next should not leave a wall of yt-dlp
+    // children running, all of them stale before any of them finish.
+    if (prewarmInFlight >= PREWARM_DEPTH) break
+    prewarmInFlight += 1
+    void provider
+      .prewarm(ahead.id)
+      .catch(() => undefined)
+      .finally(() => {
+        prewarmInFlight -= 1
+      })
+  }
+}
+
+/**
+ * Keep the upcoming tracks warm whenever the playhead moves.
+ *
+ * Subscribing rather than calling `prewarmUpcoming()` from each action means
+ * every route into a new track is covered — Next, Previous, Play Next, a
+ * restored queue — instead of the two paths that used to remember to.
+ */
+function attachPrewarmBridge(): void {
+  let lastIndex = usePlayerStore.getState().index
+  prewarmUpcoming()
+  usePlayerStore.subscribe((state) => {
+    if (state.index === lastIndex) return
+    lastIndex = state.index
+    prewarmUpcoming()
+  })
 }
 
 /**
@@ -196,7 +235,6 @@ export const usePlayerStore = create<PlayerStore>()(
           error: null,
         })
         startTrack(ordered[index]!)
-        prewarmNext()
         // Playing anything builds out the queue around it, so the listener
         // never has to press play again after a short list runs out.
         void topUpQueue(ordered[index]!.id)
@@ -241,7 +279,6 @@ export const usePlayerStore = create<PlayerStore>()(
           const upcoming = queue[index + 1]!
           set({ index: index + 1, error: null })
           startTrack(upcoming)
-          prewarmNext()
           void topUpQueue(upcoming.id)
           return
         }
@@ -472,6 +509,7 @@ async function extendQueueWithRecommendations(): Promise<void> {
 }
 
 attachSettingsBridge()
+attachPrewarmBridge()
 
 /**
  * Progress bridge.

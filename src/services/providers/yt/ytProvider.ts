@@ -48,9 +48,30 @@ const STREAM_REASONS: Record<string, string> = {
   geo_blocked: 'This track is not available in your country.',
   unavailable: 'This track is no longer available on YouTube.',
   no_stream: 'YouTube returned no playable audio for this track.',
+  client_needs_token: 'YouTube would not hand over this track to any available playback client. Try Retry.',
   timeout: 'Resolving this track took too long. Try Retry.',
-  helper_down: 'The local media helper is not running. Restart Crest to start it.',
+  error: 'YouTube would not hand over this track right now. Try Retry.',
+  helper_down: 'Lost contact with the local media helper. Retrying — if it keeps up, restart Crest.',
 }
+
+/**
+ * How long the pre-flight probe may take.
+ *
+ * Longer than the helper's own yt-dlp timeout, because the first request for a
+ * track is the one that pays for resolving the googlevideo URL. Probing too
+ * tightly turned a slow-but-working track into a failure.
+ */
+const PROBE_TIMEOUT_MS = 35_000
+
+/**
+ * Stream URLs already proven to work, keyed by track id.
+ *
+ * A resolved URL is good for hours and the helper serves it from cache, so
+ * re-playing a track (Previous, Retry, a repeat) can skip the probe entirely.
+ * Capping the age well below the helper's own TTL keeps a URL that upstream has
+ * since revoked from being handed out twice.
+ */
+const streamCache = new TtlCache<string>(20 * 60_000, 24)
 
 function helperUrl(path: string, params: Record<string, string | number | undefined> = {}): string {
   const search = new URLSearchParams()
@@ -120,16 +141,17 @@ function ensureHelperReady(): Promise<void> {
 async function fetchHelper(
   path: string,
   params: Record<string, string | number | undefined> = {},
+  init: RequestInit = {},
 ): Promise<Response> {
   await ensureHelperReady()
   try {
-    return await fetch(helperUrl(path, params))
+    return await fetch(helperUrl(path, params), init)
   } catch (cause) {
     // The helper can also die mid-session — a crash, or the port being taken.
     // Re-checking readiness recovers that without making the user restart.
     helperReady = null
     await ensureHelperReady()
-    return await fetch(helperUrl(path, params))
+    return await fetch(helperUrl(path, params), init)
   }
 }
 
@@ -664,8 +686,11 @@ export class YtProvider implements MusicProvider {
     const videoId = trackId.startsWith('yt:') ? trackId.slice(3).trim() : ''
     if (!videoId) return
     // Fire and forget: a failed prewarm is invisible, and the player falls back
-    // to resolving on demand exactly as it did before.
-    await fetch(helperUrl('/prewarm', { vid: videoId })).catch(() => undefined)
+    // to resolving on demand exactly as it did before. It goes through
+    // `fetchHelper` so a cold helper is waited out rather than dropped — the
+    // old raw `fetch` threw at a helper that was still binding its port and the
+    // next track started cold.
+    await fetchHelper('/prewarm', { vid: videoId }).catch(() => undefined)
   }
 
   /**
@@ -689,6 +714,10 @@ export class YtProvider implements MusicProvider {
     if (!videoId) {
       return { kind: 'unavailable', reason: 'Invalid track ID.' }
     }
+    // Already proven playable and the URL has not aged out: hand it straight
+    // back. Skipping back to a track, or hitting Retry, costs nothing.
+    const known = streamCache.get(trackId)
+    if (known) return { kind: 'url', url: known, mimeType: 'audio/mp4' }
     // Confirm the helper is listening before handing the player a URL that
     // would 404; the error message keeps the UI honest about what is wrong.
     // `ensureHelperReady` already waits out the startup window and retries a
@@ -704,23 +733,34 @@ export class YtProvider implements MusicProvider {
     // instead of inside the media element, which can only say "unsupported
     // source". The resolution is cached, so the element's own request for the
     // full track is served without a second yt-dlp run.
+    //
+    // `fetchHelper` (not a raw `fetch`) because this used to go around the
+    // readiness gate: the gate is memoized, so after the helper died
+    // mid-session it still reported "ready", this request failed as a bare
+    // connection error, and every track came back "lost contact with the
+    // media helper" until the app was restarted. `fetchHelper` re-checks
+    // readiness once on exactly that failure.
     try {
-      const probe = await fetch(helperUrl('/audio', { vid: videoId }), {
+      const probe = await fetchHelper('/audio', { vid: videoId }, {
         headers: { Range: 'bytes=0-1' },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
       })
       if (!probe.ok) {
         const detail = (await probe.json().catch(() => null)) as { reason?: string } | null
         const reason = detail?.reason ?? 'error'
-        return { kind: 'unavailable', reason: STREAM_REASONS[reason] ?? `This track could not be played (${reason}).` }
+        if (reason === 'rate_limited') {
+          return { kind: 'unavailable', reason: STREAM_REASONS.rate_limited }
+        }
+        return { kind: 'unavailable', reason: STREAM_REASONS[reason] ?? STREAM_REASONS.error }
       }
       await probe.arrayBuffer()
     } catch {
-      return { kind: 'unavailable', reason: 'Lost contact with the local media helper. Try Retry.' }
+      return { kind: 'unavailable', reason: STREAM_REASONS.helper_down }
     }
 
     // The proxied URL never expires and supports Range; the player seeks freely.
     const streamUrl = helperUrl('/audio', { vid: videoId }).trim()
+    streamCache.set(trackId, streamUrl)
     return { kind: 'url', url: streamUrl, mimeType: 'audio/mp4' }
   }
 }

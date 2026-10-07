@@ -59,10 +59,27 @@ export interface AudioEngine {
   /** True when no real audio is being produced. Surfaced in the UI. */
   readonly simulated: boolean
   readonly capabilities: AudioCapabilities
+  /**
+   * Whether media is actually attached, i.e. `play()` will do something.
+   *
+   * Distinguishes "paused, resume me" from "nothing loaded, go and load a
+   * track" — otherwise the second case surfaces as the media element's own
+   * "no supported source" error.
+   */
+  readonly hasSource: boolean
 
   load(input: AudioLoadInput): Promise<void>
   play(): Promise<void>
   pause(): void
+  /**
+   * Unload whatever is loaded, without disposing the engine.
+   *
+   * Distinct from `pause()`: pausing leaves the resource (and its buffer)
+   * attached to the element, so a track that is merely paused can resume — and
+   * keeps sounding — long after the listener has skipped to something else.
+   * Switching tracks has to tear the resource down outright.
+   */
+  stop(): void
   seek(positionMs: number): void
   setVolume(volume: number): void
   setMuted(muted: boolean): void
